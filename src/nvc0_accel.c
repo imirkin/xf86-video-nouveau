@@ -43,6 +43,16 @@
 #include "shader/exas8nve0.fp"
 #include "shader/exac8nve0.fp"
 
+#include "shader/xfrm2nvf0.vp"
+#include "shader/videonvf0.fp"
+
+#include "shader/exascnvf0.fp"
+#include "shader/exacmnvf0.fp"
+#include "shader/exacanvf0.fp"
+#include "shader/exasanvf0.fp"
+#include "shader/exas8nvf0.fp"
+#include "shader/exac8nvf0.fp"
+
 #define NVC0PushProgram(pNv,addr,code) do {                                    \
 	const unsigned size = sizeof(code) / sizeof(code[0]);                  \
 	PUSH_DATAu((pNv)->pushbuf, (pNv)->scratch, (addr), size);              \
@@ -136,10 +146,11 @@ NVAccelInitP2MF_NVE0(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_pushbuf *push = pNv->pushbuf;
+	uint32_t class = (pNv->dev->chipset < 0xf0) ? 0xa040 : 0xa140;
 	int ret;
 
-	ret = nouveau_object_new(pNv->channel, 0x0000a040, 0xa040,
-				 NULL, 0, &pNv->NvMemFormat);
+	ret = nouveau_object_new(pNv->channel, class, class, NULL, 0,
+				&pNv->NvMemFormat);
 	if (ret)
 		return FALSE;
 
@@ -224,8 +235,12 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	if (pNv->Architecture < NV_ARCH_E0) {
 		class  = 0x9097;
 		handle = 0x001f906e;
-	} else {
+	} else
+	if (pNv->dev->chipset < 0xf0) {
 		class  = 0xa097;
+		handle = 0x0000906e;
+	} else {
+		class  = 0xa197;
 		handle = 0x0000906e;
 	}
 
@@ -325,7 +340,8 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 
 		BEGIN_NVC0(push, NVC0_3D(MEM_BARRIER), 1);
 		PUSH_DATA (push, 0x1111);
-	} else {
+	} else
+	if (pNv->dev->chipset < 0xf0) {
 		NVC0PushProgram(pNv, PVP_PASS, NVE0VP_Transform2);
 		NVC0PushProgram(pNv, PFP_S, NVE0FP_Source);
 		NVC0PushProgram(pNv, PFP_C, NVE0FP_Composite);
@@ -334,6 +350,15 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 		NVC0PushProgram(pNv, PFP_S_A8, NVE0FP_Source_A8);
 		NVC0PushProgram(pNv, PFP_C_A8, NVE0FP_Composite_A8);
 		NVC0PushProgram(pNv, PFP_NV12, NVE0FP_NV12);
+	} else {
+		NVC0PushProgram(pNv, PVP_PASS, NVF0VP_Transform2);
+		NVC0PushProgram(pNv, PFP_S, NVF0FP_Source);
+		NVC0PushProgram(pNv, PFP_C, NVF0FP_Composite);
+		NVC0PushProgram(pNv, PFP_CCA, NVF0FP_CAComposite);
+		NVC0PushProgram(pNv, PFP_CCASA, NVF0FP_CACompositeSrcAlpha);
+		NVC0PushProgram(pNv, PFP_S_A8, NVF0FP_Source_A8);
+		NVC0PushProgram(pNv, PFP_C_A8, NVF0FP_Composite_A8);
+		NVC0PushProgram(pNv, PFP_NV12, NVF0FP_NV12);
 	}
 
 	BEGIN_NVC0(push, NVC0_3D(SP_SELECT(1)), 4);
