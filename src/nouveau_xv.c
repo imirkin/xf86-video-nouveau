@@ -552,8 +552,11 @@ NVCopyNV12ColorPlanes(unsigned char *src1, unsigned char *src2,
 
 		if (e) {
 			unsigned short *vud = (unsigned short *) vuvud;
-
+#if X_BYTE_ORDER == X_BIG_ENDIAN
+			*vud = us[0] | (vs[0]<<8);
+#else
 			*vud = vs[0] | (us[0]<<8);
+#endif
 		}
 
 		dst += dstPitch;
