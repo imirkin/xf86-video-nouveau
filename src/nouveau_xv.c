@@ -25,6 +25,8 @@
 #include "config.h"
 #endif
 
+#include <immintrin.h>
+
 #include "xf86xv.h"
 #include <X11/extensions/Xv.h>
 #include "exa.h"
@@ -532,30 +534,47 @@ NVCopyNV12ColorPlanes(unsigned char *src1, unsigned char *src2,
 
 	w >>= 1;
 	h >>= 1;
+#ifdef __SSE2__
+	l = w >> 3;
+	e = w & 7;
+#else
 	l = w >> 1;
 	e = w & 1;
+#endif
 
 	for (j = 0; j < h; j++) {
 		unsigned char *us = src1;
 		unsigned char *vs = src2;
 		unsigned int *vuvud = (unsigned int *) dst;
+		unsigned short *vud;
 
 		for (i = 0; i < l; i++) {
-#if X_BYTE_ORDER == X_BIG_ENDIAN
+#ifdef __SSE2__
+			_mm_storeu_si128(
+				(void*)vuvud,
+				_mm_unpacklo_epi8(
+					_mm_loadl_epi64((void*)vs),
+					_mm_loadl_epi64((void*)us)));
+			vuvud+=4;
+			us+=8;
+			vs+=8;
+#else /* __SSE2__ */
+#  if X_BYTE_ORDER == X_BIG_ENDIAN
 			*vuvud++ = (vs[0]<<24) | (us[0]<<16) | (vs[1]<<8) | us[1];
-#else
+#  else
 			*vuvud++ = vs[0] | (us[0]<<8) | (vs[1]<<16) | (us[1]<<24);
-#endif
+#  endif
 			us+=2;
 			vs+=2;
+#endif /* __SSE2__ */
 		}
 
-		if (e) {
-			unsigned short *vud = (unsigned short *) vuvud;
+		vud = (unsigned short *)vuvud;
+		for (i = 0; i < e; i++) {
 #if X_BYTE_ORDER == X_BIG_ENDIAN
-			*vud = us[0] | (vs[0]<<8);
+			vud[i] = us[i] | (vs[i]<<8);
 #else
-			*vud = vs[0] | (us[0]<<8);
+			vud[i] = vs[i] | (us[i]<<8);
 #endif
 		}
 
