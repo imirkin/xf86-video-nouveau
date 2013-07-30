@@ -63,6 +63,7 @@ typedef struct {
     PixmapPtr rotate_pixmap;
     uint32_t rotate_fb_id;
     Bool cursor_visible;
+    int scanout_pixmap_x;
 } drmmode_crtc_private_rec, *drmmode_crtc_private_ptr;
 
 typedef struct {
@@ -347,9 +348,10 @@ drmmode_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
 
 	fb_id = drmmode->fb_id;
 #ifdef NOUVEAU_PIXMAP_SHARING
-	if (crtc->randr_crtc->scanout_pixmap)
-		x = y = 0;
-	else
+	if (crtc->randr_crtc->scanout_pixmap) {
+		x = drmmode_crtc->scanout_pixmap_x;
+		y = 0;
+	} else
 #endif
 	if (drmmode_crtc->rotate_fb_id) {
 		fb_id = drmmode_crtc->rotate_fb_id;
@@ -548,25 +550,57 @@ drmmode_set_scanout_pixmap(xf86CrtcPtr crtc, PixmapPtr ppix)
 {
 	ScreenPtr screen = xf86ScrnToScreen(crtc->scrn);
 	PixmapPtr screenpix = screen->GetScreenPixmap(screen);
-
+	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(crtc->scrn);
+	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
+	int c, total_width = 0, max_height = 0, this_x = 0;
 	if (!ppix) {
 		if (crtc->randr_crtc->scanout_pixmap)
 			PixmapStopDirtyTracking(crtc->randr_crtc->scanout_pixmap, screenpix);
+		drmmode_crtc->scanout_pixmap_x = 0;
 		return TRUE;
 	}
 
-	if (ppix->drawable.width > screenpix->drawable.width ||
-	    ppix->drawable.height > screenpix->drawable.height) {
+	/* iterate over all the attached crtcs -
+	   work out bounding box */
+	for (c = 0; c < xf86_config->num_crtc; c++) {
+		xf86CrtcPtr iter = xf86_config->crtc[c];
+		if (!iter->enabled && iter != crtc)
+			continue;
+		if (iter == crtc) {
+			this_x = total_width;
+			total_width += ppix->drawable.width;
+			if (max_height < ppix->drawable.height)
+				max_height = ppix->drawable.height;
+		} else {
+			total_width += iter->mode.HDisplay;
+			if (max_height < iter->mode.VDisplay)
+				max_height = iter->mode.VDisplay;
+		}
+#ifndef HAS_DIRTYTRACKING2
+	if (iter != crtc) {
+		ErrorF("Cannot do multiple crtcs without X server dirty tracking 2 interface\n");
+		return FALSE;
+	}
+#endif
+	}
+
+	if (total_width != screenpix->drawable.width ||
+	    max_height != screenpix->drawable.height) {
 		Bool ret;
-		ret = drmmode_xf86crtc_resize(crtc->scrn, ppix->drawable.width, ppix->drawable.height);
+		ret = drmmode_xf86crtc_resize(crtc->scrn, total_width, max_height);
 		if (ret == FALSE)
 			return FALSE;
 
 		screenpix = screen->GetScreenPixmap(screen);
-		screen->width = screenpix->drawable.width = ppix->drawable.width;
-		screen->height = screenpix->drawable.height = ppix->drawable.height;
+		screen->width = screenpix->drawable.width = total_width;
+		screen->height = screenpix->drawable.height = max_height;
 	}
+	drmmode_crtc->scanout_pixmap_x = this_x;
+#ifdef HAS_DIRTYTRACKING2
+	PixmapStartDirtyTracking2(ppix, screenpix, 0, 0, this_x, 0);
+#else
 	PixmapStartDirtyTracking(ppix, screenpix, 0, 0);
+#endif
 	return TRUE;
 }
 #endif
