@@ -348,7 +348,7 @@ drmmode_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
 
 	fb_id = drmmode->fb_id;
 #ifdef NOUVEAU_PIXMAP_SHARING
-	if (crtc->randr_crtc->scanout_pixmap) {
+	if (crtc->randr_crtc && crtc->randr_crtc->scanout_pixmap) {
 		x = drmmode_crtc->scanout_pixmap_x;
 		y = 0;
 	} else
