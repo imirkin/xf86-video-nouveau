@@ -1098,10 +1098,12 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 	if (koutput->connector_type >= NUM_OUTPUT_NAMES)
 		snprintf(name, 32, "Unknown%d-%d", koutput->connector_type,
 			 koutput->connector_type_id);
+#ifdef NOUVEAU_PIXMAP_SHARING
 	else if (pScrn->is_gpu)
 		snprintf(name, 32, "%s-%d-%d",
 			 output_names[koutput->connector_type], pScrn->scrnIndex - GPU_SCREEN_OFFSET + 1,
 			 koutput->connector_type_id);
+#endif
 	else
 		snprintf(name, 32, "%s-%d",
 			 output_names[koutput->connector_type],
