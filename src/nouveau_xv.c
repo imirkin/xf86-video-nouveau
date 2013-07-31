@@ -25,7 +25,9 @@
 #include "config.h"
 #endif
 
+#ifdef __SSE2__
 #include <immintrin.h>
+#endif
 
 #include "xf86xv.h"
 #include <X11/extensions/Xv.h>
