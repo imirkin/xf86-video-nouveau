@@ -309,7 +309,7 @@ NVHasKMS(struct pci_device *pci_dev)
 	nouveau_device_del(&dev);
 
 
-	switch (chipset & 0xf0) {
+	switch (chipset & ~0xf) {
 	case 0x00:
 	case 0x10:
 	case 0x20:
@@ -324,6 +324,7 @@ NVHasKMS(struct pci_device *pci_dev)
 	case 0xd0:
 	case 0xe0:
 	case 0xf0:
+	case 0x100:
 		break;
 	default:
 		xf86DrvMsg(-1, X_ERROR, "Unknown chipset: NV%02x\n", chipset);
@@ -839,7 +840,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	sprintf(pScrn->chipset, "NVIDIA NV%02X", dev->chipset);
 	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Chipset: \"%s\"\n", pScrn->chipset);
 
-	switch (dev->chipset & 0xf0) {
+	switch (dev->chipset & ~0xf) {
 	case 0x00:
 		pNv->Architecture = NV_ARCH_04;
 		break;
@@ -868,6 +869,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 		break;
 	case 0xe0:
 	case 0xf0:
+	case 0x100:
 		pNv->Architecture = NV_ARCH_E0;
 		break;
 	default:
