@@ -128,6 +128,9 @@ typedef struct _NVRec {
 	/* SYNC extension private */
 	void *sync;
 
+	/* Present extension private */
+	void *present;
+
 	/* Acceleration context */
 	PixmapPtr pspix, pmpix, pdpix;
 	PicturePtr pspict, pmpict;

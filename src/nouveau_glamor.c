@@ -27,7 +27,7 @@
 
 static DevPrivateKeyRec glamor_private;
 
-static inline void
+void
 nouveau_glamor_pixmap_set(PixmapPtr pixmap, struct nouveau_pixmap *priv)
 {
 	dixSetPrivate(&pixmap->devPrivates, &glamor_private, priv);
