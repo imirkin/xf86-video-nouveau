@@ -1134,6 +1134,17 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	xf86DrvMsg(pScrn->scrnIndex, from, "Swap limit set to %d [Max allowed %d]%s\n",
 		   pNv->swap_limit, pNv->max_swap_limit, reason);
 
+	/* Does kernel do the sync of pageflips to vblank? */
+	pNv->has_async_pageflip = FALSE;
+#ifdef DRM_CAP_ASYNC_PAGE_FLIP
+	ret = drmGetCap(pNv->dev->fd, DRM_CAP_ASYNC_PAGE_FLIP, &v);
+	if (ret == 0 && v == 1) {
+		pNv->has_async_pageflip = TRUE;
+	}
+	xf86DrvMsg(pScrn->scrnIndex, X_DEFAULT, "Page flipping synced to vblank by %s.\n",
+			   pNv->has_async_pageflip ? "kernel" : "ddx");
+#endif
+
 	ret = drmmode_pre_init(pScrn, pNv->dev->fd, pScrn->bitsPerPixel >> 3);
 	if (ret == FALSE)
 		NVPreInitFail("Kernel modesetting failed to initialize\n");
