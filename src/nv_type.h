@@ -63,6 +63,7 @@ typedef struct _NVRec {
     Bool		wfb_enabled;
     Bool		tiled_scanout;
     Bool		glx_vblank;
+    Bool		has_async_pageflip;
     Bool		has_pageflip;
     int 		swap_limit;
     int 		max_swap_limit;

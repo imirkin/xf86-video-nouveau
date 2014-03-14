@@ -619,7 +619,7 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 	struct nouveau_pushbuf *push = pNv->pushbuf;
 	RegionRec reg;
 	int type, ret;
-	Bool front_updated;
+	Bool front_updated, will_exchange;
 
 	REGION_INIT(0, &reg, (&(BoxRec){ 0, 0, draw->width, draw->height }), 0);
 	REGION_TRANSLATE(0, &reg, draw->x, draw->y);
@@ -648,7 +648,18 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 	/* Throttle on the previous frame before swapping */
 	nouveau_bo_wait(dst_bo, NOUVEAU_BO_RD, push->client);
 
-	if (can_sync_to_vblank(draw)) {
+	/* Swap by buffer exchange possible? */
+	will_exchange = front_updated && can_exchange(draw, dst_pix, src_pix);
+
+	/* Only emit a wait for vblank pushbuf here if this is a copy-swap, or
+	 * if it is a kms pageflip-swap on an old kernel. Pure exchange swaps
+	 * don't need sync to vblank. kms pageflip-swaps on Linux 3.13+ are
+	 * synced to vblank in the kms driver, so we must not sync here, or
+	 * framerate will be cut in half!
+	 */
+	if (can_sync_to_vblank(draw) &&
+		(!will_exchange ||
+		(!pNv->has_async_pageflip && nouveau_exa_pixmap_is_onscreen(dst_pix)))) {
 		/* Reference the back buffer to sync it to vblank */
 		nouveau_pushbuf_refn(push, &(struct nouveau_pushbuf_refn) {
 					   src_bo,
@@ -666,7 +677,7 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 		nouveau_pushbuf_kick(push, push->channel);
 	}
 
-	if (front_updated && can_exchange(draw, dst_pix, src_pix)) {
+	if (will_exchange) {
 		type = DRI2_EXCHANGE_COMPLETE;
 		DamageRegionAppend(draw, &reg);
 
