@@ -227,15 +227,21 @@ NVDriverFunc(ScrnInfoPtr scrn, xorgDriverFuncOp op, void *data)
 	    flag = (CARD32 *)data;
 	    (*flag) = 0;
 	    return TRUE;
+#if XORG_VERSION_CURRENT > XORG_VERSION_NUMERIC(1,15,99,0,0)
+	case SUPPORTS_SERVER_FDS:
+	    return TRUE;
+#endif
 	default:
 	    return FALSE;
     }
 }
 
 static void
-NVInitScrn(ScrnInfoPtr pScrn, int entity_num)
+NVInitScrn(ScrnInfoPtr pScrn, struct xf86_platform_device *platform_dev,
+	   int entity_num)
 {
 	DevUnion *pPriv;
+	NVEntPtr pNVEnt;
 
 	pScrn->driverVersion    = NV_VERSION;
 	pScrn->driverName       = NV_DRIVER_NAME;
@@ -258,6 +264,8 @@ NVInitScrn(ScrnInfoPtr pScrn, int entity_num)
 				     NVEntityIndex);
 	if (!pPriv->ptr) {
 		pPriv->ptr = xnfcalloc(sizeof(NVEntRec), 1);
+		pNVEnt = pPriv->ptr;
+		pNVEnt->platform_dev = platform_dev;
 	}
 
 	xf86SetEntityInstanceForScreen(pScrn, entity_num,
@@ -265,11 +273,12 @@ NVInitScrn(ScrnInfoPtr pScrn, int entity_num)
 }
 
 static struct nouveau_device *
-NVOpenNouveauDevice(struct pci_device *pci_dev, int scrnIndex, Bool probe)
+NVOpenNouveauDevice(struct pci_device *pci_dev,
+	struct xf86_platform_device *platform_dev, int scrnIndex, Bool probe)
 {
 	struct nouveau_device *dev = NULL;
 	char *busid;
-	int ret;
+	int ret, fd = -1;
 
 #if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,9,99,901,0)
 	XNFasprintf(&busid, "pci:%04x:%02x:%02x.%d",
@@ -288,7 +297,15 @@ NVOpenNouveauDevice(struct pci_device *pci_dev, int scrnIndex, Bool probe)
 		}
 	}
 
-	ret = nouveau_device_open(busid, &dev);
+#if defined(ODEV_ATTRIB_FD)
+	if (platform_dev)
+		fd = xf86_get_platform_device_int_attrib(platform_dev,
+							 ODEV_ATTRIB_FD, -1);
+#endif
+	if (fd != -1)
+		ret = nouveau_device_wrap(fd, 0, &dev);
+	else
+		ret = nouveau_device_open(busid, &dev);
 	if (ret)
 		xf86DrvMsg(scrnIndex, X_ERROR,
 			   "[drm] Failed to open DRM device for %s: %d\n",
@@ -299,13 +316,13 @@ NVOpenNouveauDevice(struct pci_device *pci_dev, int scrnIndex, Bool probe)
 }
 
 static Bool
-NVHasKMS(struct pci_device *pci_dev)
+NVHasKMS(struct pci_device *pci_dev, struct xf86_platform_device *platform_dev)
 {
 	struct nouveau_device *dev = NULL;
 	drmVersion *version;
 	int chipset;
 
-	dev = NVOpenNouveauDevice(pci_dev, -1, TRUE);
+	dev = NVOpenNouveauDevice(pci_dev, platform_dev, -1, TRUE);
 	if (!dev)
 		return FALSE;
 
@@ -359,7 +376,7 @@ NVPciProbe(DriverPtr drv, int entity_num, struct pci_device *pci_dev,
 	};
 	ScrnInfoPtr pScrn = NULL;
 
-	if (!NVHasKMS(pci_dev))
+	if (!NVHasKMS(pci_dev, NULL))
 		return FALSE;
 
 	pScrn = xf86ConfigPciEntity(pScrn, 0, entity_num, NVChipsets,
@@ -367,7 +384,7 @@ NVPciProbe(DriverPtr drv, int entity_num, struct pci_device *pci_dev,
 	if (!pScrn)
 		return FALSE;
 
-	NVInitScrn(pScrn, entity_num);
+	NVInitScrn(pScrn, NULL, entity_num);
 
 	return TRUE;
 }
@@ -383,7 +400,7 @@ NVPlatformProbe(DriverPtr driver,
 	if (!dev->pdev)
 		return FALSE;
 
-	if (!NVHasKMS(dev->pdev))
+	if (!NVHasKMS(dev->pdev, dev))
 		return FALSE;
 
 	if (flags & PLATFORM_PROBE_GPU_SCREEN)
@@ -397,7 +414,7 @@ NVPlatformProbe(DriverPtr driver,
 		xf86SetEntityShared(entity_num);
 	xf86AddEntityToScreen(scrn, entity_num);
 
-	NVInitScrn(scrn, entity_num);
+	NVInitScrn(scrn, dev, entity_num);
 
 	return TRUE;
 }
@@ -436,13 +453,22 @@ NVEnterVT(VT_FUNC_ARGS_DECL)
 {
 	SCRN_INFO_PTR(arg);
 	NVPtr pNv = NVPTR(pScrn);
+#ifdef XF86_PDEV_SERVER_FD
+	NVEntPtr pNVEnt = NVEntPriv(pScrn);
+#endif
 	int ret;
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVEnterVT is called.\n");
 
-	ret = drmSetMaster(pNv->dev->fd);
-	if (ret)
-		ErrorF("Unable to get master: %s\n", strerror(errno));
+#ifdef XF86_PDEV_SERVER_FD
+	if (!(pNVEnt->platform_dev &&
+	      (pNVEnt->platform_dev->flags & XF86_PDEV_SERVER_FD)))
+#endif
+	{
+		ret = drmSetMaster(pNv->dev->fd);
+		if (ret)
+			ErrorF("Unable to get master: %s\n", strerror(errno));
+	}
 
 	if (XF86_CRTC_CONFIG_PTR(pScrn)->num_crtc && !xf86SetDesiredModes(pScrn))
 		return FALSE;
@@ -464,9 +490,18 @@ NVLeaveVT(VT_FUNC_ARGS_DECL)
 {
 	SCRN_INFO_PTR(arg);
 	NVPtr pNv = NVPTR(pScrn);
+#ifdef XF86_PDEV_SERVER_FD
+	NVEntPtr pNVEnt = NVEntPriv(pScrn);
+#endif
 	int ret;
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVLeaveVT is called.\n");
+
+#ifdef XF86_PDEV_SERVER_FD
+	if (pNVEnt->platform_dev &&
+	    (pNVEnt->platform_dev->flags & XF86_PDEV_SERVER_FD))
+		return;
+#endif
 
 	ret = drmDropMaster(pNv->dev->fd);
 	if (ret && errno != EIO && errno != ENODEV)
@@ -719,7 +754,8 @@ static Bool NVOpenDRMMaster(ScrnInfoPtr pScrn)
 		return TRUE;
 	}
 
-	pNv->dev = NVOpenNouveauDevice(pNv->PciInfo, pScrn->scrnIndex, FALSE);
+	pNv->dev = NVOpenNouveauDevice(pNv->PciInfo, pNVEnt->platform_dev,
+				       pScrn->scrnIndex, FALSE);
 	if (!pNv->dev)
 		return FALSE;
 

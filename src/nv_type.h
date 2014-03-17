@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "xf86Crtc.h"
+#include "xf86platformBus.h"
 
 #if XF86_CRTC_VERSION >= 5
 #define NOUVEAU_PIXMAP_SHARING 1
@@ -28,7 +29,10 @@ typedef struct _NVRec *NVPtr;
 
 typedef struct {
 	int fd;
+	struct xf86_platform_device *platform_dev;
 } NVEntRec, *NVEntPtr;
+
+NVEntPtr NVEntPriv(ScrnInfoPtr pScrn);
 
 typedef struct _NVRec {
     uint32_t              Architecture;
