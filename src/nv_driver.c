@@ -264,13 +264,12 @@ NVInitScrn(ScrnInfoPtr pScrn, int entity_num)
 					xf86GetNumEntityInstances(entity_num) - 1);
 }
 
-static Bool
-NVHasKMS(struct pci_device *pci_dev)
+static struct nouveau_device *
+NVOpenNouveauDevice(struct pci_device *pci_dev, int scrnIndex, Bool probe)
 {
 	struct nouveau_device *dev = NULL;
-	drmVersion *version;
 	char *busid;
-	int chipset, ret;
+	int ret;
 
 #if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,9,99,901,0)
 	XNFasprintf(&busid, "pci:%04x:%02x:%02x.%d",
@@ -280,19 +279,35 @@ NVHasKMS(struct pci_device *pci_dev)
 			  pci_dev->domain, pci_dev->bus, pci_dev->dev, pci_dev->func);
 #endif
 
-	ret = drmCheckModesettingSupported(busid);
-	if (ret) {
-		xf86DrvMsg(-1, X_ERROR, "[drm] KMS not enabled\n");
-		free(busid);
-		return FALSE;
+	if (probe) {
+		ret = drmCheckModesettingSupported(busid);
+		if (ret) {
+			xf86DrvMsg(scrnIndex, X_ERROR, "[drm] KMS not enabled\n");
+			free(busid);
+			return NULL;
+		}
 	}
 
 	ret = nouveau_device_open(busid, &dev);
+	if (ret)
+		xf86DrvMsg(scrnIndex, X_ERROR,
+			   "[drm] Failed to open DRM device for %s: %d\n",
+			   busid, ret);
+
 	free(busid);
-	if (ret) {
-		xf86DrvMsg(-1, X_ERROR, "[drm] failed to open device\n");
+	return dev;
+}
+
+static Bool
+NVHasKMS(struct pci_device *pci_dev)
+{
+	struct nouveau_device *dev = NULL;
+	drmVersion *version;
+	int chipset;
+
+	dev = NVOpenNouveauDevice(pci_dev, -1, TRUE);
+	if (!dev)
 		return FALSE;
-	}
 
 	/* Check the version reported by the kernel module.  In theory we
 	 * shouldn't have to do this, as libdrm_nouveau will do its own checks.
@@ -688,8 +703,6 @@ static Bool NVOpenDRMMaster(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
 	NVEntPtr pNVEnt = NVEntPriv(pScrn);
-	struct pci_device *dev = pNv->PciInfo;
-	char *busid;
 	drmSetVersion sv;
 	int err;
 	int ret;
@@ -706,23 +719,9 @@ static Bool NVOpenDRMMaster(ScrnInfoPtr pScrn)
 		return TRUE;
 	}
 
-#if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,9,99,901,0)
-	XNFasprintf(&busid, "pci:%04x:%02x:%02x.%d",
-		    dev->domain, dev->bus, dev->dev, dev->func);
-#else
-	busid = XNFprintf("pci:%04x:%02x:%02x.%d",
-			  dev->domain, dev->bus, dev->dev, dev->func);
-#endif
-
-	ret = nouveau_device_open(busid, &pNv->dev);
-	if (ret) {
-		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-			   "[drm] Failed to open DRM device for %s: %d\n",
-			   busid, ret);
-		free(busid);
+	pNv->dev = NVOpenNouveauDevice(pNv->PciInfo, pScrn->scrnIndex, FALSE);
+	if (!pNv->dev)
 		return FALSE;
-	}
-	free(busid);
 
 	sv.drm_di_major = 1;
 	sv.drm_di_minor = 1;
