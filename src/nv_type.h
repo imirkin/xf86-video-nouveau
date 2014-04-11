@@ -8,7 +8,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "xf86Crtc.h"
-#include "xf86platformBus.h"
 
 #if XF86_CRTC_VERSION >= 5
 #define NOUVEAU_PIXMAP_SHARING 1
@@ -23,6 +22,8 @@
 #define NV_ARCH_50  0x50
 #define NV_ARCH_C0  0xc0
 #define NV_ARCH_E0  0xe0
+
+struct xf86_platform_device;
 
 /* NV50 */
 typedef struct _NVRec *NVPtr;
