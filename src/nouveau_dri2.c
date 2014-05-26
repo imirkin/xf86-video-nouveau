@@ -584,7 +584,23 @@ nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 		event->s = data;
 	}
 
-	vbl.request.type = type | (crtcs == 2 ? DRM_VBLANK_SECONDARY : 0);
+	/* Select crtc with smallest index from bitmask of crtcs */
+	crtcs = ffs(crtcs) - 1;
+
+	if (crtcs == 1)
+		type |= DRM_VBLANK_SECONDARY;
+	else if (crtcs > 1)
+#ifdef DRM_VBLANK_HIGH_CRTC_SHIFT
+		type |= (crtcs << DRM_VBLANK_HIGH_CRTC_SHIFT) &
+				DRM_VBLANK_HIGH_CRTC_MASK;
+#else
+	xf86DrvMsg(scrn->scrnIndex, X_WARNING,
+			   "Wait for VBlank failed: Called for CRTC %d > 1, but "
+			   "DRM_VBLANK_HIGH_CRTC_SHIFT not defined at build time.\n",
+			   crtcs);
+#endif
+
+	vbl.request.type = type;
 	vbl.request.sequence = msc;
 	vbl.request.signal = (unsigned long)token;
 
@@ -630,11 +646,11 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 								draw->width,
 								draw->height);
 
-	/* Whenever first crtc is involved, choose it as reference, as
-	 * its vblank event triggered this swap.
+	/* Choose crtc with smallest index as reference, as its
+	 * vblank event triggered this swap. ref_crtc_hw_id is
+	 * a bit field (crtc 0 = bit 0, crtc 1 = bit 1 ...)
 	 */
-	if (ref_crtc_hw_id & 1)
-		ref_crtc_hw_id = 1;
+	ref_crtc_hw_id = 1 << (ffs(ref_crtc_hw_id) - 1);
 
 	/* Update frontbuffer pixmap and name: Could have changed due to
 	 * window (un)redirection as part of compositing.
