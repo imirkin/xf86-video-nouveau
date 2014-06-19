@@ -35,6 +35,7 @@ nouveau_drv_la_SOURCES = \
 			 nouveau_copy90b5.c \
 			 nouveau_copya0b5.c \
 			 nouveau_exa.c nouveau_xv.c nouveau_dri2.c \
+			 nouveau_glamor.c \
 			 nouveau_wfb.c \
 			 nv_accel_common.c \
 			 nv_driver.c \
@@ -120,6 +121,7 @@ EXTRA_DIST = hwdefs/nv_3ddefs.xml.h \
 	     shader/Makefile \
 	     nouveau_local.h \
 	     nouveau_copy.h \
+	     nouveau_glamor.h \
 	     nv_const.h \
 	     nv_dma.h \
 	     nv_include.h \

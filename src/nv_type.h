@@ -49,6 +49,7 @@ typedef struct _NVRec {
 	    UNKNOWN = 0,
 	    NONE,
 	    EXA,
+	    GLAMOR,
     } AccelMethod;
     void (*Flush)(ScrnInfoPtr);
 

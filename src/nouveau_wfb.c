@@ -26,6 +26,7 @@
  */
 
 #include "nv_include.h"
+#include "nouveau_glamor.h"
 
 struct wfb_pixmap {
 	PixmapPtr ppix;
@@ -134,8 +135,15 @@ nouveau_wfb_setup_wrap(ReadMemoryProcPtr *pRead, WriteMemoryProcPtr *pWrite,
 		return;
 
 	ppix = NVGetDrawablePixmap(pDraw);
-	if (ppix)
-		bo = nouveau_pixmap_bo(ppix);
+	if (ppix) {
+		NVPtr pNv = NVPTR(xf86ScreenToScrn(pDraw->pScreen));
+		struct nouveau_pixmap *priv;
+		if (pNv->AccelMethod == GLAMOR)
+			priv = nouveau_glamor_pixmap_get(ppix);
+		else
+			priv = nouveau_pixmap(ppix);
+		bo = priv ? priv->bo : NULL;
+	}
 
 	if (!ppix || !bo) {
 		for (i = 0; i < 6; i++)

@@ -33,6 +33,7 @@
 #endif
 
 #include "nouveau_copy.h"
+#include "nouveau_glamor.h"
 
 /*
  * Forward definitions for the functions that make up the driver.
@@ -580,7 +581,6 @@ NVCreateScreenResources(ScreenPtr pScreen)
 {
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
 	NVPtr pNv = NVPTR(pScrn);
-	PixmapPtr ppix;
 
 	pScreen->CreateScreenResources = pNv->CreateScreenResources;
 	if (!(*pScreen->CreateScreenResources)(pScreen))
@@ -592,8 +592,11 @@ NVCreateScreenResources(ScreenPtr pScreen)
 		return FALSE;
 
 	if (pNv->AccelMethod == EXA) {
-		ppix = pScreen->GetScreenPixmap(pScreen);
+		PixmapPtr ppix = pScreen->GetScreenPixmap(pScreen);
 		nouveau_bo_ref(pNv->scanout, &nouveau_pixmap(ppix)->bo);
+	} else
+	if (pNv->AccelMethod == GLAMOR) {
+		nouveau_glamor_create_screen_resources(pScreen);
 	}
 
 	return TRUE;
@@ -1010,8 +1013,11 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 
 	string = xf86GetOptValString(pNv->Options, OPTION_ACCELMETHOD);
 	if (string) {
-		if      (!strcmp(string, "none")) pNv->AccelMethod = NONE;
-		else if (!strcmp(string,  "exa")) pNv->AccelMethod = EXA;
+		if      (!strcmp(string,   "none")) pNv->AccelMethod = NONE;
+		else if (!strcmp(string,    "exa")) pNv->AccelMethod = EXA;
+#ifdef HAVE_GLAMOR
+		else if (!strcmp(string, "glamor")) pNv->AccelMethod = GLAMOR;
+#endif
 		else {
 			xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
 				   "Invalid AccelMethod specified\n");
@@ -1040,6 +1046,11 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 				pNv->Options, OPTION_WFB, FALSE);
 
 		pNv->tiled_scanout = TRUE;
+	}
+
+	if (pNv->AccelMethod == GLAMOR) {
+		if (!nouveau_glamor_pre_init(pScrn))
+			pNv->AccelMethod = EXA;
 	}
 
 	pNv->ce_enabled =
@@ -1413,8 +1424,14 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 
 	xf86SetBlackWhitePixels(pScreen);
 
-	if (pNv->AccelMethod == EXA && !nouveau_exa_init(pScreen))
-		return FALSE;
+	if (pNv->AccelMethod == GLAMOR) {
+		if (!nouveau_glamor_init(pScreen))
+			return FALSE;
+	} else
+	if (pNv->AccelMethod == EXA) {
+		if (!nouveau_exa_init(pScreen))
+			return FALSE;
+	}
 
 	xf86SetBackingStore(pScreen);
 	xf86SetSilkenMouse(pScreen);

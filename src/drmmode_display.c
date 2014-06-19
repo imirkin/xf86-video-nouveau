@@ -42,6 +42,8 @@
 #include "libudev.h"
 #endif
 
+#include "nouveau_glamor.h"
+
 static Bool drmmode_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height);
 typedef struct {
     int fd;
@@ -115,6 +117,15 @@ drmmode_from_scrn(ScrnInfoPtr scrn)
 	return NULL;
 }
 
+static inline struct nouveau_pixmap *
+drmmode_pixmap(PixmapPtr ppix)
+{
+	NVPtr pNv = NVPTR(xf86ScreenToScrn(ppix->drawable.pScreen));
+	if (pNv->AccelMethod == GLAMOR)
+		return nouveau_glamor_pixmap_get(ppix);
+	return nouveau_pixmap(ppix);
+}
+
 static PixmapPtr
 drmmode_pixmap_wrap(ScreenPtr pScreen, int width, int height, int depth,
 		    int bpp, int pitch, struct nouveau_bo *bo, void *data)
@@ -132,7 +143,7 @@ drmmode_pixmap_wrap(ScreenPtr pScreen, int width, int height, int depth,
 	pScreen->ModifyPixmapHeader(ppix, width, height, depth, bpp,
 				    pitch, data);
 	if (pNv->AccelMethod > NONE)
-		nouveau_bo_ref(bo, &nouveau_pixmap(ppix)->bo);
+		nouveau_bo_ref(bo, &drmmode_pixmap(ppix)->bo);
 
 	return ppix;
 }
@@ -1221,8 +1232,8 @@ drmmode_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height)
 	}
 
 	ppix = screen->GetScreenPixmap(screen);
-	if (pNv->AccelMethod > NONE)
-		nouveau_bo_ref(pNv->scanout, &nouveau_pixmap(ppix)->bo);
+	if (pNv->AccelMethod >= NONE)
+		nouveau_bo_ref(pNv->scanout, &drmmode_pixmap(ppix)->bo);
 	screen->ModifyPixmapHeader(ppix, width, height, -1, -1, pitch,
 				   (pNv->AccelMethod > NONE || pNv->ShadowPtr) ?
 				   pNv->ShadowPtr : pNv->scanout->map);
@@ -1379,7 +1390,7 @@ drmmode_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 	ret = drmModeAddFB(mode->fd, scrn->virtualX, scrn->virtualY,
 			   scrn->depth, scrn->bitsPerPixel,
 			   scrn->displayWidth * scrn->bitsPerPixel / 8,
-			   nouveau_pixmap_bo(back)->handle, &mode->fb_id);
+			   drmmode_pixmap(back)->bo->handle, &mode->fb_id);
 	if (ret) {
 		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
 			   "add fb failed: %s\n", strerror(errno));
