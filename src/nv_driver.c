@@ -1027,7 +1027,12 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	}
 
 	if (pNv->AccelMethod == UNKNOWN) {
-		pNv->AccelMethod = EXA;
+#ifdef HAVE_GLAMOR
+		if (pNv->Architecture >= NV_MAXWELL)
+			pNv->AccelMethod = GLAMOR;
+		else
+#endif
+			pNv->AccelMethod = EXA;
 	}
 
 	if (xf86ReturnOptValBool(pNv->Options, OPTION_NOACCEL, FALSE)) {
