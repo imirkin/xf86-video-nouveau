@@ -15,6 +15,12 @@ void drmmode_screen_fini(ScreenPtr pScreen);
 int  drmmode_head(xf86CrtcPtr crtc);
 void drmmode_swap(ScrnInfoPtr, uint32_t, uint32_t *);
 
+void *drmmode_event_queue(ScrnInfoPtr, uint64_t name, unsigned size,
+			  void (*)(void *, uint64_t, uint64_t, uint32_t),
+			  void **token);
+void  drmmode_event_abort(ScrnInfoPtr, uint64_t name, bool pending);
+int   drmmode_event_flush(ScrnInfoPtr);
+
 /* in nv_accel_common.c */
 Bool NVAccelCommonInit(ScrnInfoPtr pScrn);
 void NVAccelCommonFini(ScrnInfoPtr pScrn);
@@ -27,12 +33,6 @@ Bool nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height,
 			      struct nouveau_bo **bo);
 
 /* in nouveau_dri2.c */
-void nouveau_dri2_vblank_handler(int fd, unsigned int frame,
-				 unsigned int tv_sec, unsigned int tv_usec,
-				 void *event_data);
-void nouveau_dri2_flip_handler(int fd, unsigned int frame,
-			       unsigned int tv_sec, unsigned int tv_usec,
-			       void *event_data);
 Bool nouveau_dri2_init(ScreenPtr pScreen);
 void nouveau_dri2_fini(ScreenPtr pScreen);
 

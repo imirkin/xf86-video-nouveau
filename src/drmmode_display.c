@@ -126,6 +126,102 @@ drmmode_swap(ScrnInfoPtr scrn, uint32_t next, uint32_t *prev)
 	drmmode->fb_id = next;
 }
 
+struct drmmode_event {
+	struct xorg_list head;
+	drmmode_ptr drmmode;
+	uint64_t name;
+	void (*func)(void *, uint64_t, uint64_t, uint32_t);
+};
+
+static struct xorg_list
+drmmode_events = {
+	.next = &drmmode_events,
+	.prev = &drmmode_events,
+};
+
+static void
+drmmode_event_handler(int fd, unsigned int frame, unsigned int tv_sec,
+		      unsigned int tv_usec, void *event_data)
+{
+	const uint64_t ust = (uint64_t)tv_sec * 1000000 + tv_usec;
+	struct drmmode_event *e = event_data;
+
+	xorg_list_for_each_entry(e, &drmmode_events, head) {
+		if (e == event_data) {
+			xorg_list_del(&e->head);
+			e->func((void *)(e + 1), e->name, ust, frame);
+			free(e);
+			break;
+		}
+	}
+}
+
+void
+drmmode_event_abort(ScrnInfoPtr scrn, uint64_t name, bool pending)
+{
+	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
+	struct drmmode_event *e, *t;
+
+	xorg_list_for_each_entry_safe(e, t, &drmmode_events, head) {
+		if (e->drmmode == drmmode && e->name == name) {
+			xorg_list_del(&e->head);
+			if (!pending)
+				free(e);
+			break;
+		}
+	}
+}
+
+void *
+drmmode_event_queue(ScrnInfoPtr scrn, uint64_t name, unsigned size,
+		    void (*func)(void *, uint64_t, uint64_t, uint32_t),
+		    void **event_data)
+{
+	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
+	struct drmmode_event *e;
+
+	e = *event_data = calloc(1, sizeof(*e) + size);
+	if (e) {
+		e->drmmode = drmmode;
+		e->name = name;
+		e->func = func;
+		xorg_list_append(&e->head, &drmmode_events);
+		return (void *)(e + 1);
+	}
+
+	return NULL;
+}
+
+int
+drmmode_event_flush(ScrnInfoPtr scrn)
+{
+	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
+	return drmHandleEvent(drmmode->fd, &drmmode->event_context);
+}
+
+void
+drmmode_event_fini(ScrnInfoPtr scrn)
+{
+	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
+	struct drmmode_event *e, *t;
+
+	xorg_list_for_each_entry_safe(e, t, &drmmode_events, head) {
+		if (e->drmmode == drmmode) {
+			xorg_list_del(&e->head);
+			free(e);
+		}
+	}
+}
+
+void
+drmmode_event_init(ScrnInfoPtr scrn)
+{
+	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
+	drmmode->event_context.version = DRM_EVENT_CONTEXT_VERSION;
+	drmmode->event_context.vblank_handler = drmmode_event_handler;
+	drmmode->event_context.page_flip_handler = drmmode_event_handler;
+}
+
 static PixmapPtr
 drmmode_pixmap_wrap(ScreenPtr pScreen, int width, int height, int depth,
 		    int bpp, int pitch, struct nouveau_bo *bo, void *data)
@@ -1464,18 +1560,14 @@ drmmode_screen_init(ScreenPtr pScreen)
 	ScrnInfoPtr scrn = xf86ScreenToScrn(pScreen);
 	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
 
+	/* Setup handler for DRM events */
+	drmmode_event_init(scrn);
+
+	/* Setup handler for udevevents */
 	drmmode_uevent_init(scrn);
 
-	/* Plug in a vblank event handler */
-	drmmode->event_context.version = DRM_EVENT_CONTEXT_VERSION;
-	drmmode->event_context.vblank_handler = nouveau_dri2_vblank_handler;
-
-	/* Plug in a pageflip completion event handler */
-	drmmode->event_context.page_flip_handler = nouveau_dri2_flip_handler;
-
-	AddGeneralSocket(drmmode->fd);
-
 	/* Register a wakeup handler to get informed on DRM events */
+	AddGeneralSocket(drmmode->fd);
 	RegisterBlockAndWakeupHandlers((BlockHandlerProcPtr)NoopDDA,
 				       drmmode_wakeup_handler, scrn);
 }
@@ -1486,10 +1578,14 @@ drmmode_screen_fini(ScreenPtr pScreen)
 	ScrnInfoPtr scrn = xf86ScreenToScrn(pScreen);
 	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
 
-	drmmode_uevent_fini(scrn);
-
-	/* Register a wakeup handler to get informed on DRM events */
+	/* Unregister wakeup handler */
 	RemoveBlockAndWakeupHandlers((BlockHandlerProcPtr)NoopDDA,
 				     drmmode_wakeup_handler, scrn);
 	RemoveGeneralSocket(drmmode->fd);
+
+	/* Tear down udev event handler */
+	drmmode_uevent_fini(scrn);
+
+	/* Tear down DRM event handler */
+	drmmode_event_fini(scrn);
 }

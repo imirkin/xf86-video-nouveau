@@ -230,6 +230,12 @@ struct nouveau_dri2_vblank_state {
 	unsigned int frame;
 };
 
+struct dri2_vblank {
+	struct nouveau_dri2_vblank_state *s;
+};
+
+static uint64_t dri2_sequence;
+
 static Bool
 update_front(DrawablePtr draw, DRI2BufferPtr front)
 {
@@ -328,9 +334,8 @@ typedef struct {
     unsigned old_fb_id;
     int flip_count;
     void *event_data;
-    unsigned int fe_frame;
-    unsigned int fe_tv_sec;
-    unsigned int fe_tv_usec;
+    unsigned int fe_msc;
+    unsigned int fe_ust;
 } dri2_flipdata_rec, *dri2_flipdata_ptr;
 
 typedef struct {
@@ -338,7 +343,7 @@ typedef struct {
     Bool dispatch_me;
 } dri2_flipevtcarrier_rec, *dri2_flipevtcarrier_ptr;
 
-void
+static void
 nouveau_dri2_flip_event_handler(unsigned int frame, unsigned int tv_sec,
 				unsigned int tv_usec, void *event_data)
 {
@@ -393,21 +398,18 @@ nouveau_dri2_flip_event_handler(unsigned int frame, unsigned int tv_sec,
 	free(flip);
 }
 
-void
-nouveau_dri2_flip_handler(int fd, unsigned int frame, unsigned int tv_sec,
-			  unsigned int tv_usec, void *event_data)
+static void
+nouveau_dri2_flip_handler(void *priv, uint64_t name, uint64_t ust, uint32_t msc)
 {
-	dri2_flipevtcarrier_ptr flipcarrier = event_data;
+	dri2_flipevtcarrier_ptr flipcarrier = priv;
 	dri2_flipdata_ptr flipdata = flipcarrier->flipdata;
 
 	/* Is this the event whose info shall be delivered to higher level? */
 	if (flipcarrier->dispatch_me) {
 		/* Yes: Cache msc, ust for later delivery. */
-		flipdata->fe_frame = frame;
-		flipdata->fe_tv_sec = tv_sec;
-		flipdata->fe_tv_usec = tv_usec;
+		flipdata->fe_msc = msc;
+		flipdata->fe_ust = ust;
 	}
-	free(flipcarrier);
 
 	/* Last crtc completed flip? */
 	flipdata->flip_count--;
@@ -423,8 +425,10 @@ nouveau_dri2_flip_handler(int fd, unsigned int frame, unsigned int tv_sec,
 	}
 
 	/* Deliver cached msc, ust from reference crtc to flip event handler */
-	nouveau_dri2_flip_event_handler(flipdata->fe_frame, flipdata->fe_tv_sec,
-					flipdata->fe_tv_usec, flipdata->event_data);
+	nouveau_dri2_flip_event_handler(flipdata->fe_msc,
+					flipdata->fe_ust / 1000000,
+					flipdata->fe_ust % 1000000,
+					flipdata->event_data);
 	free(flipdata);
 }
 
@@ -463,13 +467,17 @@ dri2_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 
 	for (i = 0; i < config->num_crtc; i++) {
 		int head = drmmode_head(config->crtc[i]);
+		void *token;
 
 		if (!config->crtc[i]->enabled)
 			continue;
 
 		flipdata->flip_count++;
 
-		flipcarrier = calloc(1, sizeof(dri2_flipevtcarrier_rec));
+		flipcarrier = drmmode_event_queue(scrn, ++dri2_sequence,
+						  sizeof(*flipcarrier),
+						  nouveau_dri2_flip_handler,
+						  &token);
 		if (!flipcarrier) {
 			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
 				   "flip queue: carrier alloc failed.\n");
@@ -485,12 +493,11 @@ dri2_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 		flipcarrier->flipdata = flipdata;
 
 		ret = drmModePageFlip(pNv->dev->fd, head, next_fb,
-				      DRM_MODE_PAGE_FLIP_EVENT, flipcarrier);
+				      DRM_MODE_PAGE_FLIP_EVENT, token);
 		if (ret) {
 			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
 				   "flip queue failed: %s\n", strerror(errno));
-
-			free(flipcarrier);
+			drmmode_event_abort(scrn, dri2_sequence--, false);
 			if (emitted == 0)
 				free(flipdata);
 			goto error_undo;
@@ -513,12 +520,13 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 			 unsigned int tv_sec, unsigned int tv_usec,
 			 struct nouveau_dri2_vblank_state *s);
 
-void
-nouveau_dri2_vblank_handler(int fd, unsigned int frame,
-			    unsigned int tv_sec, unsigned int tv_usec,
-			    void *event_data)
+static void
+nouveau_dri2_vblank_handler(void *priv, uint64_t name, uint64_t ust, uint32_t frame)
 {
-	struct nouveau_dri2_vblank_state *s = event_data;
+	struct dri2_vblank *event = priv;
+	struct nouveau_dri2_vblank_state *s = event->s;
+	uint32_t tv_sec  = ust / 1000000;
+	uint32_t tv_usec = ust % 1000000;
 	DrawablePtr draw;
 	int ret;
 
@@ -561,16 +569,31 @@ nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 	int crtcs = nv_window_belongs_to_crtc(scrn, draw->x, draw->y,
 					      draw->width, draw->height);
 	drmVBlank vbl;
+	struct dri2_vblank *event = NULL;
+	void *token = NULL;
 	int ret;
+
+	if (type & DRM_VBLANK_EVENT) {
+		event = drmmode_event_queue(scrn, ++dri2_sequence,
+					    sizeof(*event),
+					    nouveau_dri2_vblank_handler,
+					    &token);
+		if (!event)
+			return -ENOMEM;
+
+		event->s = data;
+	}
 
 	vbl.request.type = type | (crtcs == 2 ? DRM_VBLANK_SECONDARY : 0);
 	vbl.request.sequence = msc;
-	vbl.request.signal = (unsigned long)data;
+	vbl.request.signal = (unsigned long)token;
 
 	ret = drmWaitVBlank(pNv->dev->fd, &vbl);
 	if (ret) {
 		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
 			   "Wait for VBlank failed: %s\n", strerror(errno));
+		if (event)
+			drmmode_event_abort(scrn, dri2_sequence--, false);
 		return ret;
 	}
 
