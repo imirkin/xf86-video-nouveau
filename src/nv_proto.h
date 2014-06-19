@@ -30,8 +30,9 @@ Bool nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height,
 void nouveau_dri2_vblank_handler(int fd, unsigned int frame,
 				 unsigned int tv_sec, unsigned int tv_usec,
 				 void *event_data);
-void nouveau_dri2_flip_event_handler(unsigned int frame, unsigned int tv_sec,
-				     unsigned int tv_usec, void *event_data);
+void nouveau_dri2_flip_handler(int fd, unsigned int frame,
+			       unsigned int tv_sec, unsigned int tv_usec,
+			       void *event_data);
 Bool nouveau_dri2_init(ScreenPtr pScreen);
 void nouveau_dri2_fini(ScreenPtr pScreen);
 

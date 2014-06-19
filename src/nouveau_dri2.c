@@ -11,6 +11,8 @@
 #error "This driver requires a DRI2-enabled X server"
 #endif
 
+#include "xf86drmMode.h"
+
 struct nouveau_dri2_buffer {
 	DRI2BufferRec base;
 	PixmapPtr ppix;
@@ -321,6 +323,21 @@ static Bool violate_oml(DrawablePtr draw)
 	return (DRI2INFOREC_VERSION < 6) && (pNv->swap_limit > 1);
 }
 
+typedef struct {
+    int fd;
+    unsigned old_fb_id;
+    int flip_count;
+    void *event_data;
+    unsigned int fe_frame;
+    unsigned int fe_tv_sec;
+    unsigned int fe_tv_usec;
+} dri2_flipdata_rec, *dri2_flipdata_ptr;
+
+typedef struct {
+    dri2_flipdata_ptr flipdata;
+    Bool dispatch_me;
+} dri2_flipevtcarrier_rec, *dri2_flipevtcarrier_ptr;
+
 void
 nouveau_dri2_flip_event_handler(unsigned int frame, unsigned int tv_sec,
 				unsigned int tv_usec, void *event_data)
@@ -374,6 +391,121 @@ nouveau_dri2_flip_event_handler(unsigned int frame, unsigned int tv_sec,
 	}
 
 	free(flip);
+}
+
+void
+nouveau_dri2_flip_handler(int fd, unsigned int frame, unsigned int tv_sec,
+			  unsigned int tv_usec, void *event_data)
+{
+	dri2_flipevtcarrier_ptr flipcarrier = event_data;
+	dri2_flipdata_ptr flipdata = flipcarrier->flipdata;
+
+	/* Is this the event whose info shall be delivered to higher level? */
+	if (flipcarrier->dispatch_me) {
+		/* Yes: Cache msc, ust for later delivery. */
+		flipdata->fe_frame = frame;
+		flipdata->fe_tv_sec = tv_sec;
+		flipdata->fe_tv_usec = tv_usec;
+	}
+	free(flipcarrier);
+
+	/* Last crtc completed flip? */
+	flipdata->flip_count--;
+	if (flipdata->flip_count > 0)
+		return;
+
+	/* Release framebuffer */
+	drmModeRmFB(flipdata->fd, flipdata->old_fb_id);
+
+	if (flipdata->event_data == NULL) {
+		free(flipdata);
+		return;
+	}
+
+	/* Deliver cached msc, ust from reference crtc to flip event handler */
+	nouveau_dri2_flip_event_handler(flipdata->fe_frame, flipdata->fe_tv_sec,
+					flipdata->fe_tv_usec, flipdata->event_data);
+	free(flipdata);
+}
+
+static Bool
+dri2_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
+		  unsigned int ref_crtc_hw_id)
+{
+	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
+	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(scrn);
+	NVPtr pNv = NVPTR(scrn);
+	uint32_t next_fb;
+	int emitted = 0;
+	int ret, i;
+	dri2_flipdata_ptr flipdata;
+	dri2_flipevtcarrier_ptr flipcarrier;
+
+	ret = drmModeAddFB(pNv->dev->fd, scrn->virtualX, scrn->virtualY,
+			   scrn->depth, scrn->bitsPerPixel,
+			   scrn->displayWidth * scrn->bitsPerPixel / 8,
+			   nouveau_pixmap(back)->bo->handle, &next_fb);
+	if (ret) {
+		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
+			   "add fb failed: %s\n", strerror(errno));
+		return FALSE;
+	}
+
+	flipdata = calloc(1, sizeof(dri2_flipdata_rec));
+	if (!flipdata) {
+		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
+		"flip queue: data alloc failed.\n");
+		goto error_undo;
+	}
+
+	flipdata->event_data = priv;
+	flipdata->fd = pNv->dev->fd;
+
+	for (i = 0; i < config->num_crtc; i++) {
+		int head = drmmode_head(config->crtc[i]);
+
+		if (!config->crtc[i]->enabled)
+			continue;
+
+		flipdata->flip_count++;
+
+		flipcarrier = calloc(1, sizeof(dri2_flipevtcarrier_rec));
+		if (!flipcarrier) {
+			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
+				   "flip queue: carrier alloc failed.\n");
+			if (emitted == 0)
+				free(flipdata);
+			goto error_undo;
+		}
+
+		/* Only the reference crtc will finally deliver its page flip
+		 * completion event. All other crtc's events will be discarded.
+		 */
+		flipcarrier->dispatch_me = ((1 << i) == ref_crtc_hw_id);
+		flipcarrier->flipdata = flipdata;
+
+		ret = drmModePageFlip(pNv->dev->fd, head, next_fb,
+				      DRM_MODE_PAGE_FLIP_EVENT, flipcarrier);
+		if (ret) {
+			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
+				   "flip queue failed: %s\n", strerror(errno));
+
+			free(flipcarrier);
+			if (emitted == 0)
+				free(flipdata);
+			goto error_undo;
+		}
+
+		emitted++;
+	}
+
+	/* Will release old fb after all crtc's completed flip. */
+	drmmode_swap(scrn, next_fb, &flipdata->old_fb_id);
+	return TRUE;
+
+error_undo:
+	drmModeRmFB(pNv->dev->fd, next_fb);
+	return FALSE;
 }
 
 static void
@@ -517,9 +649,8 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 
 		if (nouveau_exa_pixmap_is_onscreen(dst_pix)) {
 			type = DRI2_FLIP_COMPLETE;
-			ret = drmmode_page_flip(draw, src_pix,
-						violate_oml(draw) ? NULL : s,
-						ref_crtc_hw_id);
+			ret = dri2_page_flip(draw, src_pix, violate_oml(draw) ?
+					     NULL : s, ref_crtc_hw_id);
 			if (!ret)
 				goto out;
 		}

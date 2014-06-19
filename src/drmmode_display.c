@@ -87,21 +87,6 @@ typedef struct {
     drmmode_prop_ptr props;
 } drmmode_output_private_rec, *drmmode_output_private_ptr;
 
-typedef struct {
-    int fd;
-    unsigned old_fb_id;
-    int flip_count;
-    void *event_data;
-    unsigned int fe_frame;
-    unsigned int fe_tv_sec;
-    unsigned int fe_tv_usec;
-} drmmode_flipdata_rec, *drmmode_flipdata_ptr;
-
-typedef struct {
-    drmmode_flipdata_ptr flipdata;
-    Bool dispatch_me;
-} drmmode_flipevtcarrier_rec, *drmmode_flipevtcarrier_ptr;
-
 static void drmmode_output_dpms(xf86OutputPtr output, int mode);
 
 static drmmode_ptr
@@ -1391,86 +1376,6 @@ drmmode_cursor_init(ScreenPtr pScreen)
 	return xf86_cursors_init(pScreen, size, size, flags);
 }
 
-Bool
-drmmode_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
-		  unsigned int ref_crtc_hw_id)
-{
-	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
-	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(scrn);
-	NVPtr pNv = NVPTR(scrn);
-	uint32_t next_fb;
-	int emitted = 0;
-	int ret, i;
-	drmmode_flipdata_ptr flipdata;
-	drmmode_flipevtcarrier_ptr flipcarrier;
-
-	ret = drmModeAddFB(pNv->dev->fd, scrn->virtualX, scrn->virtualY,
-			   scrn->depth, scrn->bitsPerPixel,
-			   scrn->displayWidth * scrn->bitsPerPixel / 8,
-			   nouveau_pixmap(back)->bo->handle, &next_fb);
-	if (ret) {
-		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
-			   "add fb failed: %s\n", strerror(errno));
-		return FALSE;
-	}
-
-	flipdata = calloc(1, sizeof(drmmode_flipdata_rec));
-	if (!flipdata) {
-		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
-		"flip queue: data alloc failed.\n");
-		goto error_undo;
-	}
-
-	flipdata->event_data = priv;
-	flipdata->fd = pNv->dev->fd;
-
-	for (i = 0; i < config->num_crtc; i++) {
-		int head = drmmode_head(config->crtc[i]);
-
-		if (!config->crtc[i]->enabled)
-			continue;
-
-		flipdata->flip_count++;
-
-		flipcarrier = calloc(1, sizeof(drmmode_flipevtcarrier_rec));
-		if (!flipcarrier) {
-			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
-				   "flip queue: carrier alloc failed.\n");
-			if (emitted == 0)
-				free(flipdata);
-			goto error_undo;
-		}
-
-		/* Only the reference crtc will finally deliver its page flip
-		 * completion event. All other crtc's events will be discarded.
-		 */
-		flipcarrier->dispatch_me = ((1 << i) == ref_crtc_hw_id);
-		flipcarrier->flipdata = flipdata;
-
-		ret = drmModePageFlip(pNv->dev->fd, head, next_fb,
-				      DRM_MODE_PAGE_FLIP_EVENT, flipcarrier);
-		if (ret) {
-			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
-				   "flip queue failed: %s\n", strerror(errno));
-
-			free(flipcarrier);
-			if (emitted == 0)
-				free(flipdata);
-			goto error_undo;
-		}
-
-		emitted++;
-	}
-
-	/* Will release old fb after all crtc's completed flip. */
-	drmmode_swap(scrn, next_fb, &flipdata->old_fb_id);
-	return TRUE;
-
-error_undo:
-	drmModeRmFB(pNv->dev->fd, next_fb);
-	return FALSE;
-}
-
 #ifdef HAVE_LIBUDEV
 static void
 drmmode_handle_uevents(ScrnInfoPtr scrn)
@@ -1535,41 +1440,6 @@ drmmode_uevent_fini(ScrnInfoPtr scrn)
 }
 
 static void
-drmmode_flip_handler(int fd, unsigned int frame, unsigned int tv_sec,
-		     unsigned int tv_usec, void *event_data)
-{
-	drmmode_flipevtcarrier_ptr flipcarrier = event_data;
-	drmmode_flipdata_ptr flipdata = flipcarrier->flipdata;
-
-	/* Is this the event whose info shall be delivered to higher level? */
-	if (flipcarrier->dispatch_me) {
-		/* Yes: Cache msc, ust for later delivery. */
-		flipdata->fe_frame = frame;
-		flipdata->fe_tv_sec = tv_sec;
-		flipdata->fe_tv_usec = tv_usec;
-	}
-	free(flipcarrier);
-
-	/* Last crtc completed flip? */
-	flipdata->flip_count--;
-	if (flipdata->flip_count > 0)
-		return;
-
-	/* Release framebuffer */
-	drmModeRmFB(flipdata->fd, flipdata->old_fb_id);
-
-	if (flipdata->event_data == NULL) {
-		free(flipdata);
-		return;
-	}
-
-	/* Deliver cached msc, ust from reference crtc to flip event handler */
-	nouveau_dri2_flip_event_handler(flipdata->fe_frame, flipdata->fe_tv_sec,
-					flipdata->fe_tv_usec, flipdata->event_data);
-	free(flipdata);
-}
-
-static void
 drmmode_wakeup_handler(pointer data, int err, pointer p)
 {
 	ScrnInfoPtr scrn = data;
@@ -1601,7 +1471,7 @@ drmmode_screen_init(ScreenPtr pScreen)
 	drmmode->event_context.vblank_handler = nouveau_dri2_vblank_handler;
 
 	/* Plug in a pageflip completion event handler */
-	drmmode->event_context.page_flip_handler = drmmode_flip_handler;
+	drmmode->event_context.page_flip_handler = nouveau_dri2_flip_handler;
 
 	AddGeneralSocket(drmmode->fd);
 
