@@ -613,8 +613,7 @@ NVCloseScreen(CLOSE_SCREEN_ARGS_DECL)
 	if (XF86_CRTC_CONFIG_PTR(pScrn)->num_crtc)
 		drmmode_screen_fini(pScreen);
 
-	if (pNv->AccelMethod == EXA)
-		nouveau_dri2_fini(pScreen);
+	nouveau_dri2_fini(pScreen);
 
 	if (pScrn->vtSema) {
 		NVLeaveVT(VT_FUNC_ARGS(0));
@@ -1306,8 +1305,7 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 		}
 	}
 
-	if (pNv->AccelMethod == EXA)
-		nouveau_dri2_init(pScreen);
+	nouveau_dri2_init(pScreen);
 
 	/* Allocate and map memory areas we need */
 	if (!NVMapMem(pScrn))

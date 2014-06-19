@@ -777,6 +777,9 @@ nouveau_dri2_init(ScreenPtr pScreen)
 		{ "nouveau_vieux", "nouveau_vieux" }
 	};
 
+	if (pNv->AccelMethod != EXA)
+		return FALSE;
+
 	if (pNv->Architecture >= NV_ARCH_30)
 		dri2.driverNames = drivernames[0];
 	else
@@ -816,5 +819,8 @@ nouveau_dri2_init(ScreenPtr pScreen)
 void
 nouveau_dri2_fini(ScreenPtr pScreen)
 {
-	DRI2CloseScreen(pScreen);
+	ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
+	NVPtr pNv = NVPTR(pScrn);
+	if (pNv->AccelMethod == EXA)
+		DRI2CloseScreen(pScreen);
 }
