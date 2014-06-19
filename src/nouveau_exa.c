@@ -47,22 +47,18 @@ NVAccelM2MF(NVPtr pNv, int w, int h, int cpp, uint32_t srcoff, uint32_t dstoff,
 	    struct nouveau_bo *src, int sd, int sp, int sh, int sx, int sy,
 	    struct nouveau_bo *dst, int dd, int dp, int dh, int dx, int dy)
 {
+	if (pNv->ce_rect && pNv->ce_enabled)
+		return pNv->ce_rect(pNv->ce_pushbuf, pNv->NvCopy, w, h, cpp,
+				    src, srcoff, sd, sp, sh, sx, sy,
+				    dst, dstoff, dd, dp, dh, dx, dy);
+	else
 	if (pNv->Architecture >= NV_ARCH_E0)
 		return NVE0EXARectCopy(pNv, w, h, cpp,
 				       src, srcoff, sd, sp, sh, sx, sy,
 				       dst, dstoff, dd, dp, dh, dx, dy);
 	else
-	if (pNv->Architecture >= NV_ARCH_C0 && pNv->NvCopy)
-		return NVC0EXARectCopy(pNv, w, h, cpp,
-				       src, srcoff, sd, sp, sh, sx, sy,
-				       dst, dstoff, dd, dp, dh, dx, dy);
 	if (pNv->Architecture >= NV_ARCH_C0)
 		return NVC0EXARectM2MF(pNv, w, h, cpp,
-				       src, srcoff, sd, sp, sh, sx, sy,
-				       dst, dstoff, dd, dp, dh, dx, dy);
-	else
-	if (pNv->Architecture >= NV_ARCH_50 && pNv->NvCopy)
-		return NVA3EXARectCopy(pNv, w, h, cpp,
 				       src, srcoff, sd, sp, sh, sx, sy,
 				       dst, dstoff, dd, dp, dh, dx, dy);
 	else

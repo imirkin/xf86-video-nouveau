@@ -118,6 +118,10 @@ typedef struct _NVRec {
 	struct nouveau_object *ce_channel;
 	struct nouveau_pushbuf *ce_pushbuf;
 	struct nouveau_object *NvCopy;
+	Bool (*ce_rect)(struct nouveau_pushbuf *, struct nouveau_object *,
+			int, int, int,
+			struct nouveau_bo *, uint32_t, int, int, int, int, int,
+			struct nouveau_bo *, uint32_t, int, int, int, int, int);
 
 	/* Acceleration context */
 	PixmapPtr pspix, pmpix, pdpix;

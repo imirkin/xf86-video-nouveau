@@ -32,6 +32,8 @@
 #include "dri2.h"
 #endif
 
+#include "nouveau_copy.h"
+
 /*
  * Forward definitions for the functions that make up the driver.
  */
@@ -614,6 +616,7 @@ NVCloseScreen(CLOSE_SCREEN_ARGS_DECL)
 		drmmode_screen_fini(pScreen);
 
 	nouveau_dri2_fini(pScreen);
+	nouveau_copy_fini(pScreen);
 
 	if (pScrn->vtSema) {
 		NVLeaveVT(VT_FUNC_ARGS(0));
@@ -1298,6 +1301,7 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 		}
 	}
 
+	nouveau_copy_init(pScreen);
 	nouveau_dri2_init(pScreen);
 
 	/* Allocate and map memory areas we need */
