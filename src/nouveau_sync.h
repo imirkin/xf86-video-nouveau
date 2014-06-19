@@ -2,9 +2,9 @@
 #define __NOUVEAU_SYNC_H__
 
 #include "xorg-server.h"
+#include "scrnintstr.h"
 
 #ifdef DRI3
-#include "scrnintstr.h"
 #include "misync.h"
 #include "misyncshm.h"
 #include "misyncstr.h"
