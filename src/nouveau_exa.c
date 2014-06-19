@@ -415,6 +415,9 @@ nouveau_exa_init(ScreenPtr pScreen)
 	NVPtr pNv = NVPTR(pScrn);
 	ExaDriverPtr exa;
 
+	if (!xf86LoadSubModule(pScrn, "exa"))
+		return FALSE;
+
 	exa = exaDriverAlloc();
 	if (!exa)
 		return FALSE;

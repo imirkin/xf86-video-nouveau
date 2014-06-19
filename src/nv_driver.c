@@ -1168,13 +1168,6 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	if (xf86LoadSubModule(pScrn, "fb") == NULL)
 		NVPreInitFail("\n");
 
-	/* Load EXA if needed */
-	if (pNv->AccelMethod == EXA) {
-		if (!xf86LoadSubModule(pScrn, "exa")) {
-			NVPreInitFail("\n");
-		}
-	}
-
 	/* Load shadowfb */
 	if (!xf86LoadSubModule(pScrn, "shadowfb"))
 		NVPreInitFail("\n");
