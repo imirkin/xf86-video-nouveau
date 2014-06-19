@@ -125,6 +125,9 @@ typedef struct _NVRec {
 			struct nouveau_bo *, uint32_t, int, int, int, int, int,
 			struct nouveau_bo *, uint32_t, int, int, int, int, int);
 
+	/* SYNC extension private */
+	void *sync;
+
 	/* Acceleration context */
 	PixmapPtr pspix, pmpix, pdpix;
 	PicturePtr pspict, pmpict;

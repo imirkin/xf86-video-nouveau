@@ -210,8 +210,7 @@ nouveau_glamor_init(ScreenPtr screen)
 	if (!glamor_init(screen, GLAMOR_INVERTED_Y_AXIS |
 				 GLAMOR_USE_EGL_SCREEN |
 				 GLAMOR_USE_SCREEN |
-				 GLAMOR_USE_PICTURE_SCREEN |
-				 GLAMOR_NO_DRI3)) {
+				 GLAMOR_USE_PICTURE_SCREEN)) {
 		xf86DrvMsg(scrn->scrnIndex, X_ERROR,
 			   "[GLAMOR] failed to initialise\n");
 		return FALSE;
