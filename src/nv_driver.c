@@ -872,7 +872,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	dev = pNv->dev;
 
 	pScrn->chipset = malloc(sizeof(char) * 25);
-	sprintf(pScrn->chipset, "NVIDIA NV%02X", dev->chipset);
+	sprintf((char *)pScrn->chipset, "NVIDIA NV%02X", dev->chipset);
 	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Chipset: \"%s\"\n", pScrn->chipset);
 
 	switch (dev->chipset & ~0xf) {
