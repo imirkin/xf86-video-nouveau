@@ -592,11 +592,86 @@ NVAccelInitImageFromCpu(ScrnInfoPtr pScrn)
 	}                                                                     \
 } while(0)
 
+void
+NVAccelCommonFini(ScrnInfoPtr pScrn)
+{
+	NVPtr pNv = NVPTR(pScrn);
+
+	nouveau_object_del(&pNv->notify0);
+	nouveau_object_del(&pNv->vblank_sem);
+
+	nouveau_object_del(&pNv->NvContextSurfaces);
+	nouveau_object_del(&pNv->NvContextBeta1);
+	nouveau_object_del(&pNv->NvContextBeta4);
+	nouveau_object_del(&pNv->NvImagePattern);
+	nouveau_object_del(&pNv->NvRop);
+	nouveau_object_del(&pNv->NvRectangle);
+	nouveau_object_del(&pNv->NvImageBlit);
+	nouveau_object_del(&pNv->NvScaledImage);
+	nouveau_object_del(&pNv->NvClipRectangle);
+	nouveau_object_del(&pNv->NvImageFromCpu);
+	nouveau_object_del(&pNv->Nv2D);
+	nouveau_object_del(&pNv->NvMemFormat);
+	nouveau_object_del(&pNv->NvSW);
+	nouveau_object_del(&pNv->Nv3D);
+	nouveau_object_del(&pNv->NvCOPY);
+
+	nouveau_bo_ref(NULL, &pNv->scratch);
+
+	nouveau_bufctx_del(&pNv->bufctx);
+	nouveau_pushbuf_del(&pNv->pushbuf);
+	nouveau_object_del(&pNv->channel);
+}
+
 Bool
 NVAccelCommonInit(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
-	Bool ret;
+	struct nv04_fifo nv04_data = { .vram = NvDmaFB,
+				       .gart = NvDmaTT };
+	struct nvc0_fifo nvc0_data = { };
+	struct nouveau_object *device = &pNv->dev->object;
+	int size, ret;
+	void *data;
+
+	if (pNv->dev->drm_version < 0x01000000 && pNv->dev->chipset >= 0xc0) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Fermi acceleration not supported on old kernel\n");
+		return FALSE;
+	}
+
+	if (pNv->Architecture < NV_ARCH_C0) {
+		data = &nv04_data;
+		size = sizeof(nv04_data);
+	} else {
+		data = &nvc0_data;
+		size = sizeof(nvc0_data);
+	}
+
+	ret = nouveau_object_new(device, 0, NOUVEAU_FIFO_CHANNEL_CLASS,
+				 data, size, &pNv->channel);
+	if (ret) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Error creating GPU channel: %d\n", ret);
+		return FALSE;
+	}
+
+	ret = nouveau_pushbuf_new(pNv->client, pNv->channel, 4, 32 * 1024,
+				  true, &pNv->pushbuf);
+	if (ret) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Error allocating DMA push buffer: %d\n",ret);
+		NVAccelCommonFini(pScrn);
+		return FALSE;
+	}
+
+	ret = nouveau_bufctx_new(pNv->client, 1, &pNv->bufctx);
+	if (ret) {
+		NVAccelCommonFini(pScrn);
+		return FALSE;
+	}
+
+	pNv->pushbuf->user_priv = pNv->bufctx;
 
 	/* Scratch buffer */
 	ret = nouveau_bo_new(pNv->dev, NOUVEAU_BO_VRAM | NOUVEAU_BO_MAP,
@@ -670,31 +745,6 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 		break;
 	}
 
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Channel setup complete.\n");
 	return TRUE;
-}
-
-void NVAccelFree(ScrnInfoPtr pScrn)
-{
-	NVPtr pNv = NVPTR(pScrn);
-
-	nouveau_object_del(&pNv->notify0);
-	nouveau_object_del(&pNv->vblank_sem);
-
-	nouveau_object_del(&pNv->NvContextSurfaces);
-	nouveau_object_del(&pNv->NvContextBeta1);
-	nouveau_object_del(&pNv->NvContextBeta4);
-	nouveau_object_del(&pNv->NvImagePattern);
-	nouveau_object_del(&pNv->NvRop);
-	nouveau_object_del(&pNv->NvRectangle);
-	nouveau_object_del(&pNv->NvImageBlit);
-	nouveau_object_del(&pNv->NvScaledImage);
-	nouveau_object_del(&pNv->NvClipRectangle);
-	nouveau_object_del(&pNv->NvImageFromCpu);
-	nouveau_object_del(&pNv->Nv2D);
-	nouveau_object_del(&pNv->NvMemFormat);
-	nouveau_object_del(&pNv->NvSW);
-	nouveau_object_del(&pNv->Nv3D);
-	nouveau_object_del(&pNv->NvCOPY);
-
-	nouveau_bo_ref(NULL, &pNv->scratch);
 }

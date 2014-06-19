@@ -623,9 +623,8 @@ NVCloseScreen(CLOSE_SCREEN_ARGS_DECL)
 		pScrn->vtSema = FALSE;
 	}
 
-	NVAccelFree(pScrn);
 	NVTakedownVideo(pScrn);
-	NVTakedownDma(pScrn);
+	NVAccelCommonFini(pScrn);
 	NVUnmapMem(pScrn);
 
 	xf86_cursors_fini(pScreen);
@@ -1287,7 +1286,7 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 	int displayWidth;
 
 	if (pNv->AccelMethod == EXA) {
-		if (!NVInitDma(pScrn) || !NVAccelCommonInit(pScrn)) {
+		if (!NVAccelCommonInit(pScrn)) {
 			xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 				   "Error initialising acceleration.  "
 				   "Falling back to NoAccel\n");

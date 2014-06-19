@@ -37,7 +37,6 @@ nouveau_drv_la_SOURCES = \
 			 nouveau_exa.c nouveau_xv.c nouveau_dri2.c \
 			 nouveau_wfb.c \
 			 nv_accel_common.c \
-			 nv_dma.c \
 			 nv_driver.c \
 			 nv_shadow.c \
 			 nv04_exa.c \

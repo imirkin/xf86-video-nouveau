@@ -14,10 +14,10 @@ void drmmode_screen_fini(ScreenPtr pScreen);
 
 /* in nv_accel_common.c */
 Bool NVAccelCommonInit(ScrnInfoPtr pScrn);
+void NVAccelCommonFini(ScrnInfoPtr pScrn);
 Bool NVAccelGetCtxSurf2DFormatFromPixmap(PixmapPtr pPix, int *fmt_ret);
 Bool NVAccelGetCtxSurf2DFormatFromPicture(PicturePtr pPix, int *fmt_ret);
 PixmapPtr NVGetDrawablePixmap(DrawablePtr pDraw);
-void NVAccelFree(ScrnInfoPtr pScrn);
 void NV11SyncToVBlank(PixmapPtr ppix, BoxPtr box);
 Bool nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height,
 			      int bpp, int usage_hint, int *pitch,
@@ -38,10 +38,6 @@ void NVTakedownVideo(ScrnInfoPtr);
 void NVSetPortDefaults (ScrnInfoPtr pScrn, NVPortPrivPtr pPriv);
 void NVXVComputeBicubicFilter(struct nouveau_bo *, unsigned, unsigned);
 unsigned int nv_window_belongs_to_crtc(ScrnInfoPtr, int, int, int, int);
-
-/* in nv_dma.c */
-Bool  NVInitDma(ScrnInfoPtr pScrn);
-void  NVTakedownDma(ScrnInfoPtr pScrn);
 
 /* in nouveau_exa.c */
 Bool nouveau_exa_init(ScreenPtr pScreen);
