@@ -122,7 +122,7 @@ drmmode_pixmap_wrap(ScreenPtr pScreen, int width, int height, int depth,
 	NVPtr pNv = NVPTR(xf86ScreenToScrn(pScreen));
 	PixmapPtr ppix;
 
-	if (!pNv->NoAccel)
+	if (pNv->AccelMethod > NONE)
 		data = NULL;
 
 	ppix = pScreen->CreatePixmap(pScreen, 0, 0, depth, 0);
@@ -131,7 +131,7 @@ drmmode_pixmap_wrap(ScreenPtr pScreen, int width, int height, int depth,
 
 	pScreen->ModifyPixmapHeader(ppix, width, height, depth, bpp,
 				    pitch, data);
-	if (!pNv->NoAccel)
+	if (pNv->AccelMethod > NONE)
 		nouveau_bo_ref(bo, &nouveau_pixmap(ppix)->bo);
 
 	return ppix;
@@ -214,7 +214,7 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 	unsigned w = pScrn->virtualX, h = pScrn->virtualY;
 	int i, ret, fbcon_id = 0;
 
-	if (pNv->NoAccel)
+	if (pNv->AccelMethod != EXA)
 		goto fallback;
 
 	for (i = 0; i < xf86_config->num_crtc; i++) {
@@ -1221,16 +1221,16 @@ drmmode_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height)
 	}
 
 	ppix = screen->GetScreenPixmap(screen);
-	if (!pNv->NoAccel)
+	if (pNv->AccelMethod > NONE)
 		nouveau_bo_ref(pNv->scanout, &nouveau_pixmap(ppix)->bo);
 	screen->ModifyPixmapHeader(ppix, width, height, -1, -1, pitch,
-				   (!pNv->NoAccel || pNv->ShadowPtr) ?
+				   (pNv->AccelMethod > NONE || pNv->ShadowPtr) ?
 				   pNv->ShadowPtr : pNv->scanout->map);
 #if GET_ABI_MAJOR(ABI_VIDEODRV_VERSION) < 9
 	scrn->pixmapPrivate.ptr = ppix->devPrivate.ptr;
 #endif
 
-	if (!pNv->NoAccel) {
+	if (pNv->AccelMethod == EXA) {
 		pNv->EXADriverPtr->PrepareSolid(ppix, GXcopy, ~0, 0);
 		pNv->EXADriverPtr->Solid(ppix, 0, 0, width, height);
 		pNv->EXADriverPtr->DoneSolid(ppix);

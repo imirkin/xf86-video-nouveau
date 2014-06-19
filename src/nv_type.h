@@ -44,7 +44,13 @@ typedef struct _NVRec {
 
     struct nouveau_bo * scanout;
 
-    Bool                NoAccel;
+    enum {
+	    UNKNOWN = 0,
+	    NONE,
+	    EXA,
+    } AccelMethod;
+    void (*Flush)(ScrnInfoPtr);
+
     Bool                HWCursor;
     Bool                ShadowFB;
     unsigned char *     ShadowPtr;

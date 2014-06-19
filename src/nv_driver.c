@@ -513,9 +513,8 @@ NVFlushCallback(CallbackListPtr *list, pointer user_data, pointer call_data)
 {
 	ScrnInfoPtr pScrn = user_data;
 	NVPtr pNv = NVPTR(pScrn);
-
-	if (pScrn->vtSema && !pNv->NoAccel)
-		nouveau_pushbuf_kick(pNv->pushbuf, pNv->pushbuf->channel);
+	if (pScrn->vtSema && pNv->Flush)
+		pNv->Flush(pScrn);
 }
 
 #ifdef NOUVEAU_PIXMAP_SHARING
@@ -567,8 +566,7 @@ NVBlockHandler (BLOCKHANDLER_ARGS_DECL)
 	nouveau_dirty_update(pScreen);
 #endif
 
-	if (pScrn->vtSema && !pNv->NoAccel)
-		nouveau_pushbuf_kick(pNv->pushbuf, pNv->pushbuf->channel);
+	NVFlushCallback(NULL, pScrn, NULL);
 
 	if (pNv->VideoTimerCallback) 
 		(*pNv->VideoTimerCallback)(pScrn, currentTime.milliseconds);
@@ -590,7 +588,7 @@ NVCreateScreenResources(ScreenPtr pScreen)
 	if (!NVEnterVT(VT_FUNC_ARGS(0)))
 		return FALSE;
 
-	if (!pNv->NoAccel) {
+	if (pNv->AccelMethod == EXA) {
 		ppix = pScreen->GetScreenPixmap(pScreen);
 		nouveau_bo_ref(pNv->scanout, &nouveau_pixmap(ppix)->bo);
 	}
@@ -615,7 +613,7 @@ NVCloseScreen(CLOSE_SCREEN_ARGS_DECL)
 	if (XF86_CRTC_CONFIG_PTR(pScrn)->num_crtc)
 		drmmode_screen_fini(pScreen);
 
-	if (!pNv->NoAccel)
+	if (pNv->AccelMethod == EXA)
 		nouveau_dri2_fini(pScreen);
 
 	if (pScrn->vtSema) {
@@ -807,7 +805,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	struct nouveau_device *dev;
 	NVPtr pNv;
 	MessageType from;
-	const char *reason;
+	const char *reason, *string;
 	uint64_t v;
 	int ret;
 	int defaultDepth = 0;
@@ -1005,19 +1003,33 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	xf86DrvMsg(pScrn->scrnIndex, from, "Using %s cursor\n",
 		pNv->HWCursor ? "HW" : "SW");
 
+	string = xf86GetOptValString(pNv->Options, OPTION_ACCELMETHOD);
+	if (string) {
+		if      (!strcmp(string, "none")) pNv->AccelMethod = NONE;
+		else if (!strcmp(string,  "exa")) pNv->AccelMethod = EXA;
+		else {
+			xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
+				   "Invalid AccelMethod specified\n");
+		}
+	}
+
+	if (pNv->AccelMethod == UNKNOWN) {
+		pNv->AccelMethod = EXA;
+	}
+
 	if (xf86ReturnOptValBool(pNv->Options, OPTION_NOACCEL, FALSE)) {
-		pNv->NoAccel = TRUE;
+		pNv->AccelMethod = NONE;
 		xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "Acceleration disabled\n");
 	}
 
 	if (xf86ReturnOptValBool(pNv->Options, OPTION_SHADOW_FB, FALSE)) {
 		pNv->ShadowFB = TRUE;
-		pNv->NoAccel = TRUE;
+		pNv->AccelMethod = NONE;
 		xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, 
 			"Using \"Shadow Framebuffer\" - acceleration disabled\n");
 	}
 
-	if (!pNv->NoAccel) {
+	if (pNv->AccelMethod > NONE) {
 		if (pNv->Architecture >= NV_ARCH_50)
 			pNv->wfb_enabled = xf86ReturnOptValBool(
 				pNv->Options, OPTION_WFB, FALSE);
@@ -1028,7 +1040,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	pNv->ce_enabled =
 		xf86ReturnOptValBool(pNv->Options, OPTION_ASYNC_COPY, FALSE);
 
-	if (!pNv->NoAccel && pNv->dev->chipset >= 0x11) {
+	if (pNv->AccelMethod > NONE && pNv->dev->chipset >= 0x11) {
 		from = X_DEFAULT;
 		if (xf86GetOptValBool(pNv->Options, OPTION_GLX_VBLANK,
 				      &pNv->glx_vblank))
@@ -1115,7 +1127,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	 * The driver will not work as gpu screen without acceleration enabled.
 	 * To support this usecase modesetting ddx can be used instead.
 	 */
-	if (pNv->NoAccel || pNv->ShadowFB) {
+	if (pNv->AccelMethod <= NONE || pNv->ShadowFB) {
 		/*
 		 * Optimus mode requires acceleration enabled.
 		 * So if no mode is found, or the screen is created
@@ -1158,7 +1170,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 		NVPreInitFail("\n");
 
 	/* Load EXA if needed */
-	if (!pNv->NoAccel) {
+	if (pNv->AccelMethod == EXA) {
 		if (!xf86LoadSubModule(pScrn, "exa")) {
 			NVPreInitFail("\n");
 		}
@@ -1189,10 +1201,6 @@ NVMapMem(ScrnInfoPtr pScrn)
 	}
 
 	pScrn->displayWidth = pitch / (pScrn->bitsPerPixel / 8);
-
-	if (pNv->NoAccel)
-		return TRUE;
-
 	return TRUE;
 }
 
@@ -1283,12 +1291,12 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 	unsigned char *FBStart;
 	int displayWidth;
 
-	if (!pNv->NoAccel) {
+	if (pNv->AccelMethod == EXA) {
 		if (!NVInitDma(pScrn) || !NVAccelCommonInit(pScrn)) {
 			xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 				   "Error initialising acceleration.  "
 				   "Falling back to NoAccel\n");
-			pNv->NoAccel = TRUE;
+			pNv->AccelMethod = NONE;
 			pNv->ShadowFB = TRUE;
 			pNv->wfb_enabled = FALSE;
 			pNv->tiled_scanout = FALSE;
@@ -1298,7 +1306,7 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 		}
 	}
 
-	if (!pNv->NoAccel)
+	if (pNv->AccelMethod == EXA)
 		nouveau_dri2_init(pScreen);
 
 	/* Allocate and map memory areas we need */
@@ -1351,7 +1359,7 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 		displayWidth = pNv->ShadowPitch / (pScrn->bitsPerPixel >> 3);
 		FBStart = pNv->ShadowPtr;
 	} else
-	if (pNv->NoAccel) {
+	if (pNv->AccelMethod <= NONE) {
 		pNv->ShadowPtr = NULL;
 		displayWidth = pScrn->displayWidth;
 		nouveau_bo_map(pNv->scanout, NOUVEAU_BO_RDWR, pNv->client);
@@ -1407,7 +1415,7 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 
 	xf86SetBlackWhitePixels(pScreen);
 
-	if (!pNv->NoAccel && !nouveau_exa_init(pScreen))
+	if (pNv->AccelMethod == EXA && !nouveau_exa_init(pScreen))
 		return FALSE;
 
 	xf86SetBackingStore(pScreen);

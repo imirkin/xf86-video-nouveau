@@ -598,9 +598,6 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 	NVPtr pNv = NVPTR(pScrn);
 	Bool ret;
 
-	if (pNv->NoAccel)
-		return TRUE;
-
 	/* Scratch buffer */
 	ret = nouveau_bo_new(pNv->dev, NOUVEAU_BO_VRAM | NOUVEAU_BO_MAP,
 			     128 * 1024, 128 * 1024, NULL, &pNv->scratch);
@@ -683,9 +680,6 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 void NVAccelFree(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
-
-	if (pNv->NoAccel)
-		return;
 
 	nouveau_object_del(&pNv->notify0);
 	nouveau_object_del(&pNv->vblank_sem);

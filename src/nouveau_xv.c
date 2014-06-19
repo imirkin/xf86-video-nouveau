@@ -2079,7 +2079,7 @@ NVInitVideo(ScreenPtr pScreen)
 	 * might work without accel, we also disable it for now when
 	 * acceleration is disabled:
 	 */
-	if (pScrn->bitsPerPixel != 8 && !pNv->NoAccel) {
+	if (pScrn->bitsPerPixel != 8 && pNv->AccelMethod == EXA) {
 		xvSyncToVBlank = MAKE_ATOM("XV_SYNC_TO_VBLANK");
 
 		if (pNv->Architecture < NV_ARCH_50) {

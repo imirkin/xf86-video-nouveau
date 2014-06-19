@@ -401,6 +401,13 @@ nouveau_exa_pixmap_is_onscreen(PixmapPtr ppix)
 	return FALSE;
 }
 
+static void
+nouveau_exa_flush(ScrnInfoPtr pScrn)
+{
+	NVPtr pNv = NVPTR(pScrn);
+	nouveau_pushbuf_kick(pNv->pushbuf, pNv->pushbuf->channel);
+}
+
 Bool
 nouveau_exa_init(ScreenPtr pScreen) 
 {
@@ -409,10 +416,8 @@ nouveau_exa_init(ScreenPtr pScreen)
 	ExaDriverPtr exa;
 
 	exa = exaDriverAlloc();
-	if (!exa) {
-		pNv->NoAccel = TRUE;
+	if (!exa)
 		return FALSE;
-	}
 
 	exa->exa_major = EXA_VERSION_MAJOR;
 	exa->exa_minor = EXA_VERSION_MINOR;
@@ -523,5 +528,6 @@ nouveau_exa_init(ScreenPtr pScreen)
 		return FALSE;
 
 	pNv->EXADriverPtr = exa;
+	pNv->Flush = nouveau_exa_flush;
 	return TRUE;
 }
