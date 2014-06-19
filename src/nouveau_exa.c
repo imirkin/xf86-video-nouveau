@@ -519,6 +519,7 @@ nouveau_exa_init(ScreenPtr pScreen)
 		exa->Composite        = NVC0EXAComposite;
 		exa->DoneComposite    = NVC0EXADoneComposite;
 		break;
+	case NV_MAXWELL:
 	default:
 		break;
 	}
