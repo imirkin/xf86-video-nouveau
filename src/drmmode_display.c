@@ -88,7 +88,7 @@ typedef struct {
 } drmmode_output_private_rec, *drmmode_output_private_ptr;
 
 typedef struct {
-    drmmode_ptr drmmode;
+    int fd;
     unsigned old_fb_id;
     int flip_count;
     void *event_data;
@@ -124,6 +124,21 @@ drmmode_pixmap(PixmapPtr ppix)
 	if (pNv->AccelMethod == GLAMOR)
 		return nouveau_glamor_pixmap_get(ppix);
 	return nouveau_pixmap(ppix);
+}
+
+int
+drmmode_head(xf86CrtcPtr crtc)
+{
+	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
+	return drmmode_crtc->mode_crtc->crtc_id;
+}
+
+void
+drmmode_swap(ScrnInfoPtr scrn, uint32_t next, uint32_t *prev)
+{
+	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
+	*prev = drmmode->fb_id;
+	drmmode->fb_id = next;
 }
 
 static PixmapPtr
@@ -1382,18 +1397,17 @@ drmmode_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 {
 	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
 	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(scrn);
-	drmmode_crtc_private_ptr crtc = config->crtc[0]->driver_private;
-	drmmode_ptr mode = crtc->drmmode;
-	int ret, i, old_fb_id;
+	NVPtr pNv = NVPTR(scrn);
+	uint32_t next_fb;
 	int emitted = 0;
+	int ret, i;
 	drmmode_flipdata_ptr flipdata;
 	drmmode_flipevtcarrier_ptr flipcarrier;
 
-	old_fb_id = mode->fb_id;
-	ret = drmModeAddFB(mode->fd, scrn->virtualX, scrn->virtualY,
+	ret = drmModeAddFB(pNv->dev->fd, scrn->virtualX, scrn->virtualY,
 			   scrn->depth, scrn->bitsPerPixel,
 			   scrn->displayWidth * scrn->bitsPerPixel / 8,
-			   drmmode_pixmap(back)->bo->handle, &mode->fb_id);
+			   nouveau_pixmap(back)->bo->handle, &next_fb);
 	if (ret) {
 		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
 			   "add fb failed: %s\n", strerror(errno));
@@ -1408,10 +1422,10 @@ drmmode_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 	}
 
 	flipdata->event_data = priv;
-	flipdata->drmmode = mode;
+	flipdata->fd = pNv->dev->fd;
 
 	for (i = 0; i < config->num_crtc; i++) {
-		crtc = config->crtc[i]->driver_private;
+		int head = drmmode_head(config->crtc[i]);
 
 		if (!config->crtc[i]->enabled)
 			continue;
@@ -1433,9 +1447,8 @@ drmmode_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 		flipcarrier->dispatch_me = ((1 << i) == ref_crtc_hw_id);
 		flipcarrier->flipdata = flipdata;
 
-		ret = drmModePageFlip(mode->fd, crtc->mode_crtc->crtc_id,
-				      mode->fb_id, DRM_MODE_PAGE_FLIP_EVENT,
-				      flipcarrier);
+		ret = drmModePageFlip(pNv->dev->fd, head, next_fb,
+				      DRM_MODE_PAGE_FLIP_EVENT, flipcarrier);
 		if (ret) {
 			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
 				   "flip queue failed: %s\n", strerror(errno));
@@ -1450,13 +1463,11 @@ drmmode_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 	}
 
 	/* Will release old fb after all crtc's completed flip. */
-	flipdata->old_fb_id = old_fb_id;
-
+	drmmode_swap(scrn, next_fb, &flipdata->old_fb_id);
 	return TRUE;
 
 error_undo:
-	drmModeRmFB(mode->fd, mode->fb_id);
-	mode->fb_id = old_fb_id;
+	drmModeRmFB(pNv->dev->fd, next_fb);
 	return FALSE;
 }
 
@@ -1529,7 +1540,6 @@ drmmode_flip_handler(int fd, unsigned int frame, unsigned int tv_sec,
 {
 	drmmode_flipevtcarrier_ptr flipcarrier = event_data;
 	drmmode_flipdata_ptr flipdata = flipcarrier->flipdata;
-	drmmode_ptr drmmode = flipdata->drmmode;
 
 	/* Is this the event whose info shall be delivered to higher level? */
 	if (flipcarrier->dispatch_me) {
@@ -1546,7 +1556,7 @@ drmmode_flip_handler(int fd, unsigned int frame, unsigned int tv_sec,
 		return;
 
 	/* Release framebuffer */
-	drmModeRmFB(drmmode->fd, flipdata->old_fb_id);
+	drmModeRmFB(flipdata->fd, flipdata->old_fb_id);
 
 	if (flipdata->event_data == NULL) {
 		free(flipdata);
