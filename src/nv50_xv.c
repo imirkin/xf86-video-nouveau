@@ -326,7 +326,7 @@ nv50_xv_csc_update(ScrnInfoPtr pScrn, NVPortPrivPtr pPriv)
 	off[1] = Loff * yco + Coff * (uco[1] + vco[1]) + bright;
 	off[2] = Loff * yco + Coff * (uco[2] + vco[2]) + bright;
 
-	if (pNv->Architecture >= NV_ARCH_C0) {
+	if (pNv->Architecture >= NV_FERMI) {
 		nvc0_xv_csc_update(pNv, yco, off, uco, vco);
 		return;
 	}

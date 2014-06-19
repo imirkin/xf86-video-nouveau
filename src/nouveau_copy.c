@@ -60,18 +60,18 @@ nouveau_copy_init(ScreenPtr pScreen)
 	}
 
 	switch (pNv->Architecture) {
-	case NV_ARCH_50:
+	case NV_TESLA:
 		data = &(struct nv04_fifo) {
 			.vram = NvDmaFB,
 			.gart = NvDmaTT,
 		};
 		size = sizeof(struct nv04_fifo);
 		break;
-	case NV_ARCH_C0:
+	case NV_FERMI:
 		data = &(struct nvc0_fifo) {};
 		size = sizeof(struct nvc0_fifo);
 		break;
-	case NV_ARCH_E0:
+	case NV_KEPLER:
 		data = &(struct nve0_fifo) {
 			.engine = NVE0_FIFO_ENGINE_CE0 |
 				  NVE0_FIFO_ENGINE_CE1,

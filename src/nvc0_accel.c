@@ -211,7 +211,7 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	uint32_t class, handle;
 	int ret;
 
-	if (pNv->Architecture < NV_ARCH_E0) {
+	if (pNv->Architecture < NV_KEPLER) {
 		class  = 0x9097;
 		handle = 0x001f906e;
 	} else
@@ -279,7 +279,7 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	PUSH_DATA (push, 0);
 	BEGIN_NVC0(push, NVC0_3D(LINKED_TSC), 1);
 	PUSH_DATA (push, 1);
-	if (pNv->Architecture < NV_ARCH_E0) {
+	if (pNv->Architecture < NV_KEPLER) {
 		BEGIN_NVC0(push, NVC0_3D(TEX_LIMITS(4)), 1);
 		PUSH_DATA (push, 0x54);
 		BEGIN_NIC0(push, NVC0_3D(BIND_TIC(4)), 2);
@@ -307,7 +307,7 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	BEGIN_NVC0(push, NVC0_3D(CODE_ADDRESS_HIGH), 2);
 	PUSH_DATA (push, (bo->offset + CODE_OFFSET) >> 32);
 	PUSH_DATA (push, (bo->offset + CODE_OFFSET));
-	if (pNv->Architecture < NV_ARCH_E0) {
+	if (pNv->Architecture < NV_KEPLER) {
 		NVC0PushProgram(pNv, PVP_PASS, NVC0VP_Transform2);
 		NVC0PushProgram(pNv, PFP_S, NVC0FP_Source);
 		NVC0PushProgram(pNv, PFP_C, NVC0FP_Composite);

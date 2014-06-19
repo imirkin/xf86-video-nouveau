@@ -401,10 +401,10 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 					   NOUVEAU_BO_VRAM | NOUVEAU_BO_RD
 				     }, 1);
 
-		if (pNv->Architecture >= NV_ARCH_C0)
+		if (pNv->Architecture >= NV_FERMI)
 			NVC0SyncToVBlank(dst_pix, REGION_EXTENTS(0, &reg));
 		else
-		if (pNv->Architecture >= NV_ARCH_50)
+		if (pNv->Architecture >= NV_TESLA)
 			NV50SyncToVBlank(dst_pix, REGION_EXTENTS(0, &reg));
 		else
 			NV11SyncToVBlank(dst_pix, REGION_EXTENTS(0, &reg));

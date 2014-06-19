@@ -895,16 +895,16 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	case 0x80:
 	case 0x90:
 	case 0xa0:
-		pNv->Architecture = NV_ARCH_50;
+		pNv->Architecture = NV_TESLA;
 		break;
 	case 0xc0:
 	case 0xd0:
-		pNv->Architecture = NV_ARCH_C0;
+		pNv->Architecture = NV_FERMI;
 		break;
 	case 0xe0:
 	case 0xf0:
 	case 0x100:
-		pNv->Architecture = NV_ARCH_E0;
+		pNv->Architecture = NV_KEPLER;
 		break;
 	default:
 		return FALSE;
@@ -930,7 +930,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 			break;
 		case 30:
 			/* OK on NV50 KMS */
-			if (pNv->Architecture < NV_ARCH_50)
+			if (pNv->Architecture < NV_TESLA)
 				NVPreInitFail("Depth 30 supported on G80+ only\n");
 			break;
 		case 15: /* 15 may get done one day, so leave any code for it in place */
@@ -1031,7 +1031,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	}
 
 	if (pNv->AccelMethod > NONE) {
-		if (pNv->Architecture >= NV_ARCH_50)
+		if (pNv->Architecture >= NV_TESLA)
 			pNv->wfb_enabled = xf86ReturnOptValBool(
 				pNv->Options, OPTION_WFB, FALSE);
 

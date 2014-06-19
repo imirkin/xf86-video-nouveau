@@ -48,7 +48,7 @@ nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height, int bpp,
 	if (bpp >= 8)
 		flags |= shared ? NOUVEAU_BO_GART : NOUVEAU_BO_VRAM;
 
-	if (pNv->Architecture >= NV_ARCH_50) {
+	if (pNv->Architecture >= NV_TESLA) {
 		if (scanout) {
 			if (pNv->tiled_scanout) {
 				tiled = TRUE;
@@ -68,7 +68,7 @@ nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height, int bpp,
 	}
 
 	if (tiled) {
-		if (pNv->Architecture >= NV_ARCH_C0) {
+		if (pNv->Architecture >= NV_FERMI) {
 			if      (height > 64) cfg.nvc0.tile_mode = 0x040;
 			else if (height > 32) cfg.nvc0.tile_mode = 0x030;
 			else if (height > 16) cfg.nvc0.tile_mode = 0x020;
@@ -82,7 +82,7 @@ nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height, int bpp,
 
 			height = NOUVEAU_ALIGN(height,
 				 NVC0_TILE_HEIGHT(cfg.nv50.tile_mode));
-		} else if (pNv->Architecture >= NV_ARCH_50) {
+		} else if (pNv->Architecture >= NV_TESLA) {
 			if      (height > 32) cfg.nv50.tile_mode = 0x040;
 			else if (height > 16) cfg.nv50.tile_mode = 0x030;
 			else if (height >  8) cfg.nv50.tile_mode = 0x020;
@@ -108,7 +108,7 @@ nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height, int bpp,
 		}
 	}
 
-	if (pNv->Architecture < NV_ARCH_50) {
+	if (pNv->Architecture < NV_TESLA) {
 		if (bpp == 16)
 			cfg.nv04.surf_flags |= NV04_BO_16BPP;
 		if (bpp == 32)
@@ -640,7 +640,7 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 		return FALSE;
 	}
 
-	if (pNv->Architecture < NV_ARCH_C0) {
+	if (pNv->Architecture < NV_FERMI) {
 		data = &nv04_data;
 		size = sizeof(nv04_data);
 	} else {
@@ -685,13 +685,13 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 	}
 
 	/* General engine objects */
-	if (pNv->Architecture < NV_ARCH_C0) {
+	if (pNv->Architecture < NV_FERMI) {
 		INIT_CONTEXT_OBJECT(DmaNotifier0);
 		INIT_CONTEXT_OBJECT(Null);
 	}
 
 	/* 2D engine */
-	if (pNv->Architecture < NV_ARCH_50) {
+	if (pNv->Architecture < NV_TESLA) {
 		INIT_CONTEXT_OBJECT(ContextSurfaces);
 		INIT_CONTEXT_OBJECT(ContextBeta1);
 		INIT_CONTEXT_OBJECT(ContextBeta4);
@@ -703,19 +703,19 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 		INIT_CONTEXT_OBJECT(ClipRectangle);
 		INIT_CONTEXT_OBJECT(ImageFromCpu);
 	} else
-	if (pNv->Architecture < NV_ARCH_C0) {
+	if (pNv->Architecture < NV_FERMI) {
 		INIT_CONTEXT_OBJECT(2D_NV50);
 	} else {
 		INIT_CONTEXT_OBJECT(2D_NVC0);
 	}
 
-	if (pNv->Architecture < NV_ARCH_50)
+	if (pNv->Architecture < NV_TESLA)
 		INIT_CONTEXT_OBJECT(MemFormat);
 	else
-	if (pNv->Architecture < NV_ARCH_C0)
+	if (pNv->Architecture < NV_FERMI)
 		INIT_CONTEXT_OBJECT(M2MF_NV50);
 	else
-	if (pNv->Architecture < NV_ARCH_E0)
+	if (pNv->Architecture < NV_KEPLER)
 		INIT_CONTEXT_OBJECT(M2MF_NVC0);
 	else {
 		INIT_CONTEXT_OBJECT(P2MF_NVE0);
@@ -724,11 +724,11 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 
 	/* 3D init */
 	switch (pNv->Architecture) {
-	case NV_ARCH_C0:
-	case NV_ARCH_E0:
+	case NV_FERMI:
+	case NV_KEPLER:
 		INIT_CONTEXT_OBJECT(3D_NVC0);
 		break;
-	case NV_ARCH_50:
+	case NV_TESLA:
 		INIT_CONTEXT_OBJECT(NV50TCL);
 		break;
 	case NV_ARCH_40:

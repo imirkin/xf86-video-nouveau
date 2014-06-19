@@ -257,10 +257,10 @@ nouveau_xv_bo_realloc(ScrnInfoPtr pScrn, unsigned flags, unsigned size,
 	}
 
 	if (flags & NOUVEAU_BO_VRAM) {
-		if (pNv->Architecture == NV_ARCH_50)
+		if (pNv->Architecture == NV_TESLA)
 			config.nv50.memtype = 0x70;
 		else
-		if (pNv->Architecture >= NV_ARCH_C0)
+		if (pNv->Architecture >= NV_FERMI)
 			config.nvc0.memtype = 0xfe;
 	}
 	flags |= NOUVEAU_BO_MAP;
@@ -729,7 +729,7 @@ NV_calculate_pitches_and_mem_size(NVPtr pNv, int action_flags, int *srcPitch,
 {
 	int tmp;
 
-	if (pNv->Architecture >= NV_ARCH_50) {
+	if (pNv->Architecture >= NV_TESLA) {
 		npixels = (npixels + 7) & ~7;
 		nlines = (nlines + 7) & ~7;
 	}
@@ -1080,7 +1080,7 @@ NVPutImage(ScrnInfoPtr pScrn, short src_x, short src_y, short drw_x,
 			pPriv->TT_mem_chunk[pPriv->currentHostBuffer];
 	}
 	if (!destination_buffer) {
-		if (pNv->Architecture >= NV_ARCH_50) {
+		if (pNv->Architecture >= NV_TESLA) {
 			NOUVEAU_ERR("No scratch buffer for tiled upload\n");
 			return BadAlloc;
 		}
@@ -1283,7 +1283,7 @@ CPU_copy:
 						  src_w, src_h, drw_w, drw_h,
 						  clipBoxes, ppix, pPriv);
 		} else
-		if (pNv->Architecture == NV_ARCH_50) {
+		if (pNv->Architecture == NV_TESLA) {
 			ret = nv50_xv_image_put(pScrn, pPriv->video_mem,
 						offset, uv_offset,
 						id, dstPitch, &dstBox, 0, 0,
@@ -2048,7 +2048,7 @@ NVSetupTexturedVideo (ScreenPtr pScreen, XF86VideoAdaptorPtr *textureAdaptor)
 		textureAdaptor[0] = NV40SetupTexturedVideo(pScreen, FALSE);
 		textureAdaptor[1] = NV40SetupTexturedVideo(pScreen, TRUE);
 	} else
-	if (pNv->Architecture >= NV_ARCH_50) {
+	if (pNv->Architecture >= NV_TESLA) {
 		textureAdaptor[0] = NV50SetupTexturedVideo(pScreen);
 	}
 }
@@ -2082,7 +2082,7 @@ NVInitVideo(ScreenPtr pScreen)
 	if (pScrn->bitsPerPixel != 8 && pNv->AccelMethod == EXA) {
 		xvSyncToVBlank = MAKE_ATOM("XV_SYNC_TO_VBLANK");
 
-		if (pNv->Architecture < NV_ARCH_50) {
+		if (pNv->Architecture < NV_TESLA) {
 			overlayAdaptor = NVSetupOverlayVideo(pScreen);
 			blitAdaptor    = NVSetupBlitVideo(pScreen);
 		}

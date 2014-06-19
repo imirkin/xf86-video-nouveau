@@ -34,7 +34,7 @@
 #define MISC_OFFSET 0x10000
 
 /* vertex/fragment programs */
-#define SPO       ((pNv->Architecture < NV_ARCH_E0) ? 0x0000 : 0x0030)
+#define SPO       ((pNv->Architecture < NV_KEPLER) ? 0x0000 : 0x0030)
 #define PVP_PASS  (0x0000 + SPO) /* vertex pass-through shader */
 #define PFP_S     (0x0200 + SPO) /* (src) */
 #define PFP_C     (0x0400 + SPO) /* (src IN mask) */

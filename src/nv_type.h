@@ -19,9 +19,10 @@
 #define NV_ARCH_20  0x20
 #define NV_ARCH_30  0x30
 #define NV_ARCH_40  0x40
-#define NV_ARCH_50  0x50
-#define NV_ARCH_C0  0xc0
-#define NV_ARCH_E0  0xe0
+#define NV_TESLA    0x50
+#define NV_FERMI    0xc0
+#define NV_KEPLER   0xe0
+#define NV_MAXWELL  0x110
 
 struct xf86_platform_device;
 

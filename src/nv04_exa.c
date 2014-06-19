@@ -289,7 +289,7 @@ NV04EXAUploadIFC(ScrnInfoPtr pScrn, const char *src, int src_pitch,
 	int padbytes;
 	Bool ret = FALSE;
 
-	if (pNv->Architecture >= NV_ARCH_50)
+	if (pNv->Architecture >= NV_TESLA)
 		return FALSE;
 
 	if (h > 1024)
