@@ -295,6 +295,131 @@ can_sync_to_vblank(DrawablePtr draw)
 					  draw->width, draw->height);
 }
 
+#if DRI2INFOREC_VERSION >= 6
+static Bool
+nouveau_dri2_swap_limit_validate(DrawablePtr draw, int swap_limit)
+{
+	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
+	NVPtr pNv = NVPTR(scrn);
+
+	if ((swap_limit < 1 ) || (swap_limit > pNv->max_swap_limit))
+		return FALSE;
+
+	return TRUE;
+}
+#endif
+
+/* Shall we intentionally violate the OML_sync_control spec to
+ * get some sort of triple-buffering behaviour on a pre 1.12.0
+ * x-server?
+ */
+static Bool violate_oml(DrawablePtr draw)
+{
+	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
+	NVPtr pNv = NVPTR(scrn);
+
+	return (DRI2INFOREC_VERSION < 6) && (pNv->swap_limit > 1);
+}
+
+void
+nouveau_dri2_flip_event_handler(unsigned int frame, unsigned int tv_sec,
+				unsigned int tv_usec, void *event_data)
+{
+	struct nouveau_dri2_vblank_state *flip = event_data;
+	DrawablePtr draw;
+	ScreenPtr screen;
+	ScrnInfoPtr scrn;
+	int status;
+
+	status = dixLookupDrawable(&draw, flip->draw, serverClient,
+				   M_ANY, DixWriteAccess);
+	if (status != Success) {
+		free(flip);
+		return;
+	}
+
+	screen = draw->pScreen;
+	scrn = xf86ScreenToScrn(screen);
+
+	/* We assume our flips arrive in order, so we don't check the frame */
+	switch (flip->action) {
+	case SWAP:
+		/* Check for too small vblank count of pageflip completion,
+		 * taking wraparound into account. This usually means some
+		 * defective kms pageflip completion, causing wrong (msc, ust)
+		 * return values and possible visual corruption.
+		 * Skip test for frame == 0, as this is a valid constant value
+		 * reported by all Linux kernels at least up to Linux 3.0.
+		 */
+		if ((frame != 0) &&
+		    (frame < flip->frame) && (flip->frame - frame < 5)) {
+			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
+				   "%s: Pageflip has impossible msc %d < target_msc %d\n",
+				   __func__, frame, flip->frame);
+			/* All-Zero values signal failure of (msc, ust)
+			 * timestamping to client.
+			 */
+			frame = tv_sec = tv_usec = 0;
+		}
+
+		DRI2SwapComplete(flip->client, draw, frame, tv_sec, tv_usec,
+				 DRI2_FLIP_COMPLETE, flip->func,
+				 flip->data);
+		break;
+	default:
+		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
+			   "%s: unknown vblank event received\n", __func__);
+		/* Unknown type */
+		break;
+	}
+
+	free(flip);
+}
+
+static void
+nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
+			 unsigned int tv_sec, unsigned int tv_usec,
+			 struct nouveau_dri2_vblank_state *s);
+
+void
+nouveau_dri2_vblank_handler(int fd, unsigned int frame,
+			    unsigned int tv_sec, unsigned int tv_usec,
+			    void *event_data)
+{
+	struct nouveau_dri2_vblank_state *s = event_data;
+	DrawablePtr draw;
+	int ret;
+
+	ret = dixLookupDrawable(&draw, s->draw, serverClient,
+				M_ANY, DixWriteAccess);
+	if (ret) {
+		free(s);
+		return;
+	}
+
+	switch (s->action) {
+	case SWAP:
+		nouveau_dri2_finish_swap(draw, frame, tv_sec, tv_usec, s);
+#if DRI2INFOREC_VERSION >= 6
+		/* Restore real swap limit on drawable, now that it is safe. */
+		ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
+		DRI2SwapLimit(draw, NVPTR(scrn)->swap_limit);
+#endif
+		break;
+
+	case WAIT:
+		DRI2WaitMSCComplete(s->client, draw, frame, tv_sec, tv_usec);
+		free(s);
+		break;
+
+	case BLIT:
+		DRI2SwapComplete(s->client, draw, frame, tv_sec, tv_usec,
+				 DRI2_BLIT_COMPLETE, s->func, s->data);
+		free(s);
+		break;
+	}
+}
+
 static int
 nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 		    CARD64 *pmsc, CARD64 *pust, void *data)
@@ -323,32 +448,6 @@ nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 		*pust = (CARD64)vbl.reply.tval_sec * 1000000 +
 			vbl.reply.tval_usec;
 	return 0;
-}
-
-#if DRI2INFOREC_VERSION >= 6
-static Bool
-nouveau_dri2_swap_limit_validate(DrawablePtr draw, int swap_limit)
-{
-	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
-	NVPtr pNv = NVPTR(scrn);
-
-	if ((swap_limit < 1 ) || (swap_limit > pNv->max_swap_limit))
-		return FALSE;
-
-	return TRUE;
-}
-#endif
-
-/* Shall we intentionally violate the OML_sync_control spec to
- * get some sort of triple-buffering behaviour on a pre 1.12.0
- * x-server?
- */
-static Bool violate_oml(DrawablePtr draw)
-{
-	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
-	NVPtr pNv = NVPTR(scrn);
-
-	return (DRI2INFOREC_VERSION < 6) && (pNv->swap_limit > 1);
 }
 
 static void
@@ -669,101 +768,6 @@ nouveau_dri2_get_msc(DrawablePtr draw, CARD64 *ust, CARD64 *msc)
 		return FALSE;
 
 	return TRUE;
-}
-
-void
-nouveau_dri2_vblank_handler(int fd, unsigned int frame,
-			    unsigned int tv_sec, unsigned int tv_usec,
-			    void *event_data)
-{
-	struct nouveau_dri2_vblank_state *s = event_data;
-	DrawablePtr draw;
-	int ret;
-
-	ret = dixLookupDrawable(&draw, s->draw, serverClient,
-				M_ANY, DixWriteAccess);
-	if (ret) {
-		free(s);
-		return;
-	}
-
-	switch (s->action) {
-	case SWAP:
-		nouveau_dri2_finish_swap(draw, frame, tv_sec, tv_usec, s);
-#if DRI2INFOREC_VERSION >= 6
-		/* Restore real swap limit on drawable, now that it is safe. */
-		ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
-		DRI2SwapLimit(draw, NVPTR(scrn)->swap_limit);
-#endif
-
-		break;
-
-	case WAIT:
-		DRI2WaitMSCComplete(s->client, draw, frame, tv_sec, tv_usec);
-		free(s);
-		break;
-
-	case BLIT:
-		DRI2SwapComplete(s->client, draw, frame, tv_sec, tv_usec,
-				 DRI2_BLIT_COMPLETE, s->func, s->data);
-		free(s);
-		break;
-	}
-}
-
-void
-nouveau_dri2_flip_event_handler(unsigned int frame, unsigned int tv_sec,
-				unsigned int tv_usec, void *event_data)
-{
-	struct nouveau_dri2_vblank_state *flip = event_data;
-	DrawablePtr draw;
-	ScreenPtr screen;
-	ScrnInfoPtr scrn;
-	int status;
-
-	status = dixLookupDrawable(&draw, flip->draw, serverClient,
-				   M_ANY, DixWriteAccess);
-	if (status != Success) {
-		free(flip);
-		return;
-	}
-
-	screen = draw->pScreen;
-	scrn = xf86ScreenToScrn(screen);
-
-	/* We assume our flips arrive in order, so we don't check the frame */
-	switch (flip->action) {
-	case SWAP:
-		/* Check for too small vblank count of pageflip completion,
-		 * taking wraparound into account. This usually means some
-		 * defective kms pageflip completion, causing wrong (msc, ust)
-		 * return values and possible visual corruption.
-		 * Skip test for frame == 0, as this is a valid constant value
-		 * reported by all Linux kernels at least up to Linux 3.0.
-		 */
-		if ((frame != 0) &&
-		    (frame < flip->frame) && (flip->frame - frame < 5)) {
-			xf86DrvMsg(scrn->scrnIndex, X_WARNING,
-				   "%s: Pageflip has impossible msc %d < target_msc %d\n",
-				   __func__, frame, flip->frame);
-			/* All-Zero values signal failure of (msc, ust)
-			 * timestamping to client.
-			 */
-			frame = tv_sec = tv_usec = 0;
-		}
-
-		DRI2SwapComplete(flip->client, draw, frame, tv_sec, tv_usec,
-				 DRI2_FLIP_COMPLETE, flip->func,
-				 flip->data);
-		break;
-	default:
-		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
-			   "%s: unknown vblank event received\n", __func__);
-		/* Unknown type */
-		break;
-	}
-
-	free(flip);
 }
 
 Bool
