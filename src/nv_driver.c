@@ -1067,6 +1067,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 
 	if (pNv->AccelMethod > NONE && pNv->dev->chipset >= 0x11) {
 		from = X_DEFAULT;
+		pNv->glx_vblank = TRUE;
 		if (xf86GetOptValBool(pNv->Options, OPTION_GLX_VBLANK,
 				      &pNv->glx_vblank))
 			from = X_CONFIG;

@@ -96,7 +96,7 @@ Enable or disable wfb, only affects nv50+. Useful for some legacy configurations
 .BI "Option \*qGLXVBlank\*q \*q" boolean \*q
 Synchronize GLX clients to VBlank. Useful where tearing is a problem,
 harmful if the GPU isn't fast enough to keep up with the monitor
-refresh rate. Default: off.
+refresh rate. Default: on.
 .TP
 .BI "Option \*qZaphodHeads\*q \*q" string \*q
 Specify the randr output(s) to use with zaphod mode for a particular driver
