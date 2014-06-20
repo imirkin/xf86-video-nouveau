@@ -335,7 +335,7 @@ typedef struct {
     int flip_count;
     void *event_data;
     unsigned int fe_msc;
-    unsigned int fe_ust;
+    uint64_t fe_ust;
 } dri2_flipdata_rec, *dri2_flipdata_ptr;
 
 typedef struct {
