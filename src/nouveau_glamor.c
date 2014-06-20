@@ -152,26 +152,29 @@ nouveau_glamor_flush(ScrnInfoPtr pScrn)
 Bool
 nouveau_glamor_create_screen_resources(ScreenPtr screen)
 {
-	struct nouveau_pixmap *priv = calloc(1, sizeof(*priv));
 	PixmapPtr ppix = screen->GetScreenPixmap(screen);
 	ScrnInfoPtr scrn = xf86ScreenToScrn(screen);
 	NVPtr pNv = NVPTR(scrn);
 
 	if (!glamor_glyphs_init(screen))
-		goto fail;
+		return FALSE;
 
 	if (!glamor_egl_create_textured_screen_ext(screen,
 						   pNv->scanout->handle,
 						   scrn->displayWidth *
 						   scrn->bitsPerPixel / 8,
 						   NULL))
-		goto fail;
+		return FALSE;
 
-	nouveau_glamor_pixmap_set(ppix, priv);
+	if (!nouveau_glamor_pixmap_get(ppix)) {
+		struct nouveau_pixmap *priv = calloc(1, sizeof(*priv));
+		if (priv) {
+			nouveau_bo_ref(pNv->scanout, &priv->bo);
+			nouveau_glamor_pixmap_set(ppix, priv);
+		}
+	}
+
 	return TRUE;
-fail:
-	free(priv);
-	return FALSE;
 }
 
 Bool

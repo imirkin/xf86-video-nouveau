@@ -1260,6 +1260,9 @@ drmmode_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height)
 				       crtc->rotation, crtc->x, crtc->y);
 	}
 
+	if (pNv->AccelMethod == GLAMOR)
+		nouveau_glamor_create_screen_resources(scrn->pScreen);
+
 	if (old_fb_id)
 		drmModeRmFB(drmmode->fd, old_fb_id);
 	nouveau_bo_ref(NULL, &old_bo);
