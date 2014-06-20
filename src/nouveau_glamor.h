@@ -23,7 +23,7 @@ static inline Bool nouveau_glamor_init(ScreenPtr screen) { return FALSE; }
 static inline Bool
 nouveau_glamor_create_screen_resources(ScreenPtr screen) { return FALSE; }
 static inline void
-nouveau_glamor_pixmap_set(PixmapPtr, struct nouveau_pixmap *) { }
+nouveau_glamor_pixmap_set(PixmapPtr pixmap, void *priv) { }
 static inline struct nouveau_pixmap *
 nouveau_glamor_pixmap_get(PixmapPtr pixmap) { return NULL; }
 static inline XF86VideoAdaptorPtr
