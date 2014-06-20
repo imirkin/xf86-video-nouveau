@@ -114,6 +114,7 @@ nouveau_copy_init(ScreenPtr pScreen)
 			}
 			break;
 		}
+		method++;
 	}
 
 	if (ret) {
