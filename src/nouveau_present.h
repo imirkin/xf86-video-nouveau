@@ -4,7 +4,11 @@
 #include "xorg-server.h"
 #include "scrnintstr.h"
 
-#ifdef DRI3
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#if defined(DRI3) && defined(HAVE_GLAMOR)
 #include "present.h"
 Bool nouveau_present_init(ScreenPtr pScreen);
 void nouveau_present_fini(ScreenPtr pScreen);

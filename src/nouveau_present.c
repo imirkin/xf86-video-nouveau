@@ -23,7 +23,7 @@
  */
 
 #include "nouveau_present.h"
-#ifdef DRI3
+#if defined(DRI3) && defined(HAVE_GLAMOR)
 #include "nv_include.h"
 #include "nouveau_glamor.h"
 #include "xf86drmMode.h"
