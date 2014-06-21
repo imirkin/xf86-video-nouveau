@@ -128,7 +128,13 @@ XORG_MANPAGE_SECTIONS
 XORG_RELEASE_VERSION
 
 AC_MSG_CHECKING([whether to include GLAMOR support])
-if pkg-config --exists "xorg-server >= 1.15.99.901"
+
+AC_COMPILE_IFELSE(AC_LANG_PROGRAM(
+[[
+  #include <glamor.h>
+]],[[]]),[found_glamor_header=yes],[found_glamor_header=no])
+
+if test "$found_glamor_header" = "yes" && pkg-config --exists "xorg-server >= 1.15.99.901"
 then
 	AC_DEFINE(HAVE_GLAMOR, 1, [Build support for glamor acceleration])
 	AC_MSG_RESULT([yes])
