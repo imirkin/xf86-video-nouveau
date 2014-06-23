@@ -746,17 +746,18 @@ static const xf86CrtcFuncsRec drmmode_crtc_funcs = {
 };
 
 
-static void
+static unsigned int
 drmmode_crtc_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 {
 	NVPtr pNv = NVPTR(pScrn);
+	NVEntPtr pNVEnt = NVEntPriv(pScrn);
 	xf86CrtcPtr crtc;
 	drmmode_crtc_private_ptr drmmode_crtc;
 	int ret;
 
 	crtc = xf86CrtcCreate(pScrn, &drmmode_crtc_funcs);
 	if (crtc == NULL)
-		return;
+		return 0;
 
 	drmmode_crtc = xnfcalloc(sizeof(drmmode_crtc_private_rec), 1);
 	drmmode_crtc->mode_crtc = drmModeGetCrtc(drmmode->fd,
@@ -770,7 +771,12 @@ drmmode_crtc_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 
 	crtc->driver_private = drmmode_crtc;
 
-	return;
+	/* Mark num'th crtc as in use on this device. */
+	pNVEnt->assigned_crtcs |= (1 << num);
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "Allocated crtc nr. %d to this screen.\n", num);
+
+	return 1;
 }
 
 static xf86OutputStatus
@@ -1197,7 +1203,7 @@ drmmode_zaphod_match(ScrnInfoPtr pScrn, const char *s, char *output_name)
     return FALSE;
 }
 
-static void
+static unsigned int
 drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 {
 	NVPtr pNv = NVPTR(pScrn);
@@ -1211,12 +1217,12 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 	koutput = drmModeGetConnector(drmmode->fd,
 				      drmmode->mode_res->connectors[num]);
 	if (!koutput)
-		return;
+		return 0;
 
 	kencoder = drmModeGetEncoder(drmmode->fd, koutput->encoders[0]);
 	if (!kencoder) {
 		drmModeFreeConnector(koutput);
-		return;
+		return 0;
 	}
 
 	if (koutput->connector_type >= NUM_OUTPUT_NAMES)
@@ -1239,18 +1245,18 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 			if (!drmmode_zaphod_match(pScrn, s, name)) {
 				drmModeFreeEncoder(kencoder);
 				drmModeFreeConnector(koutput);
-				return;
+				return 0;
 			}
 		} else {
 			if (pNv->Primary && (num != 0)) {
 				drmModeFreeEncoder(kencoder);
 				drmModeFreeConnector(koutput);
-				return;
+				return 0;
 			} else
 			if (pNv->Secondary && (num != 1)) {
 				drmModeFreeEncoder(kencoder);
 				drmModeFreeConnector(koutput);
-				return;
+				return 0;
 			}
 		}
 	}
@@ -1259,7 +1265,7 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 	if (!output) {
 		drmModeFreeEncoder(kencoder);
 		drmModeFreeConnector(koutput);
-		return;
+		return 0;
 	}
 
 	drmmode_output = calloc(sizeof(drmmode_output_private_rec), 1);
@@ -1267,7 +1273,7 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 		xf86OutputDestroy(output);
 		drmModeFreeConnector(koutput);
 		drmModeFreeEncoder(kencoder);
-		return;
+		return 0;
 	}
 
 	drmmode_output->output_id = drmmode->mode_res->connectors[num];
@@ -1285,6 +1291,8 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 
 	output->interlaceAllowed = true;
 	output->doubleScanAllowed = true;
+
+	return 1;
 }
 
 static Bool
@@ -1400,7 +1408,9 @@ static const xf86CrtcConfigFuncsRec drmmode_xf86crtc_config_funcs = {
 Bool drmmode_pre_init(ScrnInfoPtr pScrn, int fd, int cpp)
 {
 	drmmode_ptr drmmode;
+	NVEntPtr pNVEnt = NVEntPriv(pScrn);
 	int i;
+	unsigned int crtcs_needed = 0;
 
 	drmmode = xnfalloc(sizeof *drmmode);
 	drmmode->fd = fd;
@@ -1423,14 +1433,24 @@ Bool drmmode_pre_init(ScrnInfoPtr pScrn, int fd, int cpp)
 		goto done;
 	}
 
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Initializing outputs ...\n");
+	for (i = 0; i < drmmode->mode_res->count_connectors; i++)
+		crtcs_needed += drmmode_output_init(pScrn, drmmode, i);
+
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "%d crtcs needed for screen.\n", crtcs_needed);
+
 	for (i = 0; i < drmmode->mode_res->count_crtcs; i++) {
 		if (!xf86IsEntityShared(pScrn->entityList[0]) ||
-		     (pScrn->confScreen->device->screen == i))
-			drmmode_crtc_init(pScrn, drmmode, i);
+		    (crtcs_needed && !(pNVEnt->assigned_crtcs & (1 << i))))
+			crtcs_needed -= drmmode_crtc_init(pScrn, drmmode, i);
 	}
 
-	for (i = 0; i < drmmode->mode_res->count_connectors; i++)
-		drmmode_output_init(pScrn, drmmode, i);
+	/* All ZaphodHeads outputs provided with matching crtcs? */
+	if (xf86IsEntityShared(pScrn->entityList[0]) && (crtcs_needed > 0))
+		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+			   "%d ZaphodHeads crtcs unavailable. Trouble!\n",
+			   crtcs_needed);
 
 done:
 #ifdef NOUVEAU_PIXMAP_SHARING

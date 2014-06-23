@@ -276,6 +276,7 @@ NVInitScrn(ScrnInfoPtr pScrn, struct xf86_platform_device *platform_dev,
 		pPriv->ptr = xnfcalloc(sizeof(NVEntRec), 1);
 		pNVEnt = pPriv->ptr;
 		pNVEnt->platform_dev = platform_dev;
+		pNVEnt->assigned_crtcs = 0;
 	}
 
 	xf86SetEntityInstanceForScreen(pScrn, entity_num,

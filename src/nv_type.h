@@ -32,6 +32,7 @@ typedef struct _NVRec *NVPtr;
 typedef struct {
 	int fd;
 	struct xf86_platform_device *platform_dev;
+	unsigned int assigned_crtcs;
 } NVEntRec, *NVEntPtr;
 
 NVEntPtr NVEntPriv(ScrnInfoPtr pScrn);
