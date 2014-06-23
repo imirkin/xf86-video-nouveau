@@ -12,6 +12,7 @@ Bool drmmode_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 void drmmode_screen_init(ScreenPtr pScreen);
 void drmmode_screen_fini(ScreenPtr pScreen);
 
+int  drmmode_crtc(xf86CrtcPtr crtc);
 int  drmmode_head(xf86CrtcPtr crtc);
 void drmmode_swap(ScrnInfoPtr, uint32_t, uint32_t *);
 

@@ -466,7 +466,7 @@ dri2_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 	flipdata->fd = pNv->dev->fd;
 
 	for (i = 0; i < config->num_crtc; i++) {
-		int head = drmmode_head(config->crtc[i]);
+		int head = drmmode_crtc(config->crtc[i]);
 		void *token;
 
 		if (!config->crtc[i]->enabled)
@@ -565,6 +565,7 @@ nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 		    CARD64 *pmsc, CARD64 *pust, void *data)
 {
 	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
+	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(scrn);
 	NVPtr pNv = NVPTR(scrn);
 	int crtcs = nv_window_belongs_to_crtc(scrn, draw->x, draw->y,
 					      draw->width, draw->height);
@@ -572,6 +573,16 @@ nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 	struct dri2_vblank *event = NULL;
 	void *token = NULL;
 	int ret;
+	int head;
+
+	/* Select crtc with smallest index from bitmask of crtcs */
+	crtcs = ffs(crtcs) - 1;
+
+	if (crtcs < 0) {
+		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
+				   "Wait for VBlank failed: No valid crtc for drawable.\n");
+		return -EINVAL;
+	}
 
 	if (type & DRM_VBLANK_EVENT) {
 		event = drmmode_event_queue(scrn, ++dri2_sequence,
@@ -584,20 +595,20 @@ nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 		event->s = data;
 	}
 
-	/* Select crtc with smallest index from bitmask of crtcs */
-	crtcs = ffs(crtcs) - 1;
+	/* Map xf86CrtcPtr to drmWaitVBlank compatible display head index. */
+	head = drmmode_head(config->crtc[crtcs]);
 
-	if (crtcs == 1)
+	if (head == 1)
 		type |= DRM_VBLANK_SECONDARY;
-	else if (crtcs > 1)
+	else if (head > 1)
 #ifdef DRM_VBLANK_HIGH_CRTC_SHIFT
-		type |= (crtcs << DRM_VBLANK_HIGH_CRTC_SHIFT) &
+		type |= (head << DRM_VBLANK_HIGH_CRTC_SHIFT) &
 				DRM_VBLANK_HIGH_CRTC_MASK;
 #else
 	xf86DrvMsg(scrn->scrnIndex, X_WARNING,
 			   "Wait for VBlank failed: Called for CRTC %d > 1, but "
 			   "DRM_VBLANK_HIGH_CRTC_SHIFT not defined at build time.\n",
-			   crtcs);
+			   head);
 #endif
 
 	vbl.request.type = type;

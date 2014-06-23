@@ -59,6 +59,7 @@ typedef struct {
 typedef struct {
     drmmode_ptr drmmode;
     drmModeCrtcPtr mode_crtc;
+    int hw_crtc_index;
     struct nouveau_bo *cursor;
     struct nouveau_bo *rotate_bo;
     int rotate_pitch;
@@ -112,10 +113,17 @@ drmmode_pixmap(PixmapPtr ppix)
 }
 
 int
-drmmode_head(xf86CrtcPtr crtc)
+drmmode_crtc(xf86CrtcPtr crtc)
 {
 	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
 	return drmmode_crtc->mode_crtc->crtc_id;
+}
+
+int
+drmmode_head(xf86CrtcPtr crtc)
+{
+	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
+	return drmmode_crtc->hw_crtc_index;
 }
 
 void
@@ -754,6 +762,7 @@ drmmode_crtc_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 	drmmode_crtc->mode_crtc = drmModeGetCrtc(drmmode->fd,
 						 drmmode->mode_res->crtcs[num]);
 	drmmode_crtc->drmmode = drmmode;
+	drmmode_crtc->hw_crtc_index = num;
 
 	ret = nouveau_bo_new(pNv->dev, NOUVEAU_BO_GART | NOUVEAU_BO_MAP, 0,
 			     64*64*4, NULL, &drmmode_crtc->cursor);

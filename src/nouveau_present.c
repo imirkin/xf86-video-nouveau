@@ -250,18 +250,18 @@ nouveau_present_flip_exec(ScrnInfoPtr scrn, uint64_t event_id, int sync,
 
 			for (i = 0; i < config->num_crtc; i++) {
 				int type = vsync ? 0 : DRM_MODE_PAGE_FLIP_ASYNC;
-				int head = drmmode_head(config->crtc[i]);
+				int crtc = drmmode_crtc(config->crtc[i]);
 				void *user = NULL;
 
 				if (!config->crtc[i]->enabled)
 					continue;
 
-				if (token && ((head == sync) || (i == last))) {
+				if (token && ((crtc == sync) || (i == last))) {
 					type |= DRM_MODE_PAGE_FLIP_EVENT;
 					user  = token;
 				}
 
-				ret = drmModePageFlip(pNv->dev->fd, head,
+				ret = drmModePageFlip(pNv->dev->fd, crtc,
 						      next_fb, type, user);
 				if (ret == 0 && user) {
 					token = NULL;
@@ -288,7 +288,7 @@ nouveau_present_flip_next(RRCrtcPtr rrcrtc, uint64_t event_id,
 {
 	xf86CrtcPtr crtc = rrcrtc->devPrivate;
 	ScrnInfoPtr scrn = crtc->scrn;
-	return nouveau_present_flip_exec(scrn, event_id, drmmode_head(crtc),
+	return nouveau_present_flip_exec(scrn, event_id, drmmode_crtc(crtc),
 					 target_msc, pixmap, vsync);
 }
 
