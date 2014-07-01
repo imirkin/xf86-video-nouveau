@@ -81,7 +81,7 @@ nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height, int bpp,
 				cfg.nvc0.memtype = 0xfe;
 
 			height = NOUVEAU_ALIGN(height,
-				 NVC0_TILE_HEIGHT(cfg.nv50.tile_mode));
+				 NVC0_TILE_HEIGHT(cfg.nvc0.tile_mode));
 		} else if (pNv->Architecture >= NV_TESLA) {
 			if      (height > 32) cfg.nv50.tile_mode = 0x040;
 			else if (height > 16) cfg.nv50.tile_mode = 0x030;
