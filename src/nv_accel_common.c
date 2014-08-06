@@ -133,6 +133,7 @@ void
 NV11SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 {
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(ppix->drawable.pScreen);
+	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(pScrn);
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_pushbuf *push = pNv->pushbuf;
 	int crtcs;
@@ -149,10 +150,13 @@ NV11SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 	if (!PUSH_SPACE(push, 8))
 		return;
 
+	crtcs = ffs(crtcs) - 1;
+	crtcs = drmmode_head(config->crtc[crtcs]);
+
 	BEGIN_NV04(push, SUBC_BLIT(0x0000012C), 1);
 	PUSH_DATA (push, 0);
 	BEGIN_NV04(push, SUBC_BLIT(0x00000134), 1);
-	PUSH_DATA (push, ffs(crtcs) - 1);
+	PUSH_DATA (push, crtcs);
 	BEGIN_NV04(push, SUBC_BLIT(0x00000100), 1);
 	PUSH_DATA (push, 0);
 	BEGIN_NV04(push, SUBC_BLIT(0x00000130), 1);

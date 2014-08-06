@@ -63,6 +63,7 @@ void
 NVC0SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 {
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(ppix->drawable.pScreen);
+	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(pScrn);
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_pushbuf *push = pNv->pushbuf;
 	int crtcs;
@@ -79,6 +80,9 @@ NVC0SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 	if (!PUSH_SPACE(push, 32))
 		return;
 
+	crtcs = ffs(crtcs) - 1;
+	crtcs = drmmode_head(config->crtc[crtcs]);
+
 	BEGIN_NVC0(push, NV01_SUBC(NVSW, OBJECT), 1);
 	PUSH_DATA (push, pNv->NvSW->handle);
 	BEGIN_NVC0(push, NV84_SUBC(NVSW, SEMAPHORE_ADDRESS_HIGH), 4);
@@ -90,7 +94,7 @@ NVC0SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 	PUSH_DATA (push, (pNv->scratch->offset + SEMA_OFFSET) >> 32);
 	PUSH_DATA (push, (pNv->scratch->offset + SEMA_OFFSET));
 	PUSH_DATA (push, 0x11111111);
-	PUSH_DATA (push, ffs(crtcs) - 1);
+	PUSH_DATA (push, crtcs);
 	BEGIN_NVC0(push, NV84_SUBC(NVSW, SEMAPHORE_ADDRESS_HIGH), 4);
 	PUSH_DATA (push, (pNv->scratch->offset + SEMA_OFFSET) >> 32);
 	PUSH_DATA (push, (pNv->scratch->offset + SEMA_OFFSET));

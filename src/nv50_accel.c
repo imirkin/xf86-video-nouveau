@@ -31,6 +31,7 @@ void
 NV50SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 {
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(ppix->drawable.pScreen);
+	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(pScrn);
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_pushbuf *push = pNv->pushbuf;
 	int crtcs;
@@ -47,6 +48,9 @@ NV50SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 	if (!PUSH_SPACE(push, 10))
 		return;
 
+	crtcs = ffs(crtcs) - 1;
+	crtcs = drmmode_head(config->crtc[crtcs]);
+
 	BEGIN_NV04(push, SUBC_NVSW(0x0060), 2);
 	PUSH_DATA (push, pNv->vblank_sem->handle);
 	PUSH_DATA (push, 0);
@@ -54,7 +58,7 @@ NV50SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 	PUSH_DATA (push, 0x22222222);
 	BEGIN_NV04(push, SUBC_NVSW(0x0404), 2);
 	PUSH_DATA (push, 0x11111111);
-	PUSH_DATA (push, ffs(crtcs) - 1);
+	PUSH_DATA (push, crtcs);
 	BEGIN_NV04(push, SUBC_NVSW(0x0068), 1);
 	PUSH_DATA (push, 0x11111111);
 }
