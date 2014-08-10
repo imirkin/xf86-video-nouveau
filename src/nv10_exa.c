@@ -686,9 +686,9 @@ NVAccelInitNV10TCL(ScrnInfoPtr pScrn)
 	PUSH_DATA (push, 0);
 
 	BEGIN_NV04(push, NV10_3D(VIEWPORT_CLIP_HORIZ(0)), 1);
-	PUSH_DATA (push, 0x7ff << 16 | 0x800800);
+	PUSH_DATA (push, 0x7ff << 16 | 0x800);
 	BEGIN_NV04(push, NV10_3D(VIEWPORT_CLIP_VERT(0)), 1);
-	PUSH_DATA (push, 0x7ff << 16 | 0x800800);
+	PUSH_DATA (push, 0x7ff << 16 | 0x800);
 
 	for (i = 1; i < 8; i++) {
 		BEGIN_NV04(push, NV10_3D(VIEWPORT_CLIP_HORIZ(i)), 1);
