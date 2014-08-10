@@ -132,7 +132,7 @@ needs_src_alpha(int op)
 static inline Bool
 needs_src(int op)
 {
-	return nv10_pict_op[op].src != DF(ZERO);
+	return nv10_pict_op[op].src != SF(ZERO);
 }
 
 static inline Bool
