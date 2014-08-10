@@ -461,7 +461,7 @@ setup_render_target(NVPtr pNv, PicturePtr pict, PixmapPtr pixmap)
 }
 
 static void
-setup_blend_function(NVPtr pNv, PicturePtr pdpict, int alu)
+setup_blend_function(NVPtr pNv, PicturePtr pdpict, PicturePtr pmpict, int alu)
 {
 	struct nouveau_pushbuf *push = pNv->pushbuf;
 	struct pict_op *op = &nv10_pict_op[alu];
@@ -476,7 +476,7 @@ setup_blend_function(NVPtr pNv, PicturePtr pdpict, int alu)
 		 */
 		src_factor = SF(ZERO);
 
-	if (effective_component_alpha(pNv->pmpict)) {
+	if (effective_component_alpha(pmpict)) {
 		if (dst_factor == DF(SRC_ALPHA))
 			dst_factor = DF(SRC_COLOR);
 		else if (dst_factor == DF(ONE_MINUS_SRC_ALPHA))
@@ -557,7 +557,7 @@ NV10EXAPrepareComposite(int op,
 	/* setup render target and blending */
 	if (!setup_render_target(pNv, pict_dst, dst))
 		return FALSE;
-	setup_blend_function(pNv, pict_dst, op);
+	setup_blend_function(pNv, pict_dst, pict_mask, op);
 
 	/* select picture sources */
 	if (!setup_picture(pNv, pict_src, src, 0, &sc, &sa))
