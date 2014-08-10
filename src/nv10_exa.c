@@ -520,7 +520,7 @@ setup_picture(NVPtr pNv, PicturePtr pict, PixmapPtr pixmap, int unit,
 	if (pict && PICT_FORMAT_RGB(pict->format))
 		*color = RCSEL_COLOR | source;
 	else
-		*color = RCSEL_ALPHA | RCINP_ZERO;
+		*color = RCSEL_COLOR | RCINP_ZERO;
 
 	if (pict && PICT_FORMAT_A(pict->format))
 		*alpha = RCSEL_ALPHA | source;
