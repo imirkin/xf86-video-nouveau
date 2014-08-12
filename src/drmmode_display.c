@@ -1596,6 +1596,7 @@ drmmode_screen_init(ScreenPtr pScreen)
 {
 	ScrnInfoPtr scrn = xf86ScreenToScrn(pScreen);
 	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
+	NVEntPtr pNVEnt = NVEntPriv(scrn);
 
 	/* Setup handler for DRM events */
 	drmmode_event_init(scrn);
@@ -1603,10 +1604,17 @@ drmmode_screen_init(ScreenPtr pScreen)
 	/* Setup handler for udevevents */
 	drmmode_uevent_init(scrn);
 
-	/* Register a wakeup handler to get informed on DRM events */
-	AddGeneralSocket(drmmode->fd);
-	RegisterBlockAndWakeupHandlers((BlockHandlerProcPtr)NoopDDA,
-				       drmmode_wakeup_handler, scrn);
+	/* Register wakeup handler only once per servergen, so ZaphodHeads work */
+	if (pNVEnt->fd_wakeup_registered != serverGeneration) {
+		/* Register a wakeup handler to get informed on DRM events */
+		AddGeneralSocket(drmmode->fd);
+		RegisterBlockAndWakeupHandlers((BlockHandlerProcPtr)NoopDDA,
+		                               drmmode_wakeup_handler, scrn);
+		pNVEnt->fd_wakeup_registered = serverGeneration;
+		pNVEnt->fd_wakeup_ref = 1;
+	}
+	else
+		pNVEnt->fd_wakeup_ref++;
 }
 
 void
@@ -1614,11 +1622,17 @@ drmmode_screen_fini(ScreenPtr pScreen)
 {
 	ScrnInfoPtr scrn = xf86ScreenToScrn(pScreen);
 	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
+	NVEntPtr pNVEnt = NVEntPriv(scrn);
 
-	/* Unregister wakeup handler */
-	RemoveBlockAndWakeupHandlers((BlockHandlerProcPtr)NoopDDA,
-				     drmmode_wakeup_handler, scrn);
-	RemoveGeneralSocket(drmmode->fd);
+	/* Unregister wakeup handler after last x-screen for this servergen dies. */
+	if (pNVEnt->fd_wakeup_registered == serverGeneration &&
+		!--pNVEnt->fd_wakeup_ref) {
+
+		/* Unregister wakeup handler */
+		RemoveBlockAndWakeupHandlers((BlockHandlerProcPtr)NoopDDA,
+		                             drmmode_wakeup_handler, scrn);
+		RemoveGeneralSocket(drmmode->fd);
+	}
 
 	/* Tear down udev event handler */
 	drmmode_uevent_fini(scrn);
