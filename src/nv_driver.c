@@ -276,6 +276,14 @@ NVInitScrn(ScrnInfoPtr pScrn, struct xf86_platform_device *platform_dev,
 		pPriv->ptr = xnfcalloc(sizeof(NVEntRec), 1);
 		pNVEnt = pPriv->ptr;
 		pNVEnt->platform_dev = platform_dev;
+	}
+	else
+		pNVEnt = pPriv->ptr;
+
+	/* Reset settings which must not persist across server regeneration */
+	if (pNVEnt->reinitGeneration != serverGeneration) {
+		pNVEnt->reinitGeneration = serverGeneration;
+		/* Clear mask of assigned crtc's in this generation to "none" */
 		pNVEnt->assigned_crtcs = 0;
 	}
 

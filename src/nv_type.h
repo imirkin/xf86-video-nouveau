@@ -31,6 +31,7 @@ typedef struct _NVRec *NVPtr;
 
 typedef struct {
 	int fd;
+	unsigned long reinitGeneration;
 	struct xf86_platform_device *platform_dev;
 	unsigned int assigned_crtcs;
 } NVEntRec, *NVEntPtr;
