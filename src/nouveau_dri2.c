@@ -434,7 +434,7 @@ nouveau_dri2_flip_handler(void *priv, uint64_t name, uint64_t ust, uint32_t msc)
 
 static Bool
 dri2_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
-		  unsigned int ref_crtc_hw_id)
+			   xf86CrtcPtr ref_crtc)
 {
 	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
 	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(scrn);
@@ -489,7 +489,7 @@ dri2_page_flip(DrawablePtr draw, PixmapPtr back, void *priv,
 		/* Only the reference crtc will finally deliver its page flip
 		 * completion event. All other crtc's events will be discarded.
 		 */
-		flipcarrier->dispatch_me = ((1 << i) == ref_crtc_hw_id);
+		flipcarrier->dispatch_me = (config->crtc[i] == ref_crtc);
 		flipcarrier->flipdata = flipdata;
 
 		ret = drmModePageFlip(pNv->dev->fd, head, next_fb,
@@ -565,20 +565,19 @@ nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 		    CARD64 *pmsc, CARD64 *pust, void *data)
 {
 	ScrnInfoPtr scrn = xf86ScreenToScrn(draw->pScreen);
-	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(scrn);
 	NVPtr pNv = NVPTR(scrn);
-	int crtcs = nv_window_belongs_to_crtc(scrn, draw->x, draw->y,
-					      draw->width, draw->height);
+	xf86CrtcPtr crtc;
 	drmVBlank vbl;
 	struct dri2_vblank *event = NULL;
 	void *token = NULL;
 	int ret;
 	int head;
 
-	/* Select crtc with smallest index from bitmask of crtcs */
-	crtcs = ffs(crtcs) - 1;
+	/* Select crtc which shows the largest part of the drawable */
+	crtc = nouveau_pick_best_crtc(scrn, FALSE,
+                                  draw->x, draw->y, draw->width, draw->height);
 
-	if (crtcs < 0) {
+	if (!crtc) {
 		xf86DrvMsg(scrn->scrnIndex, X_WARNING,
 				   "Wait for VBlank failed: No valid crtc for drawable.\n");
 		return -EINVAL;
@@ -596,7 +595,7 @@ nouveau_wait_vblank(DrawablePtr draw, int type, CARD64 msc,
 	}
 
 	/* Map xf86CrtcPtr to drmWaitVBlank compatible display head index. */
-	head = drmmode_head(config->crtc[crtcs]);
+	head = drmmode_head(crtc);
 
 	if (head == 1)
 		type |= DRM_VBLANK_SECONDARY;
@@ -647,21 +646,14 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 	RegionRec reg;
 	int type, ret;
 	Bool front_updated, will_exchange;
+	xf86CrtcPtr ref_crtc;
 
 	REGION_INIT(0, &reg, (&(BoxRec){ 0, 0, draw->width, draw->height }), 0);
 	REGION_TRANSLATE(0, &reg, draw->x, draw->y);
 
 	/* Main crtc for this drawable shall finally deliver pageflip event. */
-	unsigned int ref_crtc_hw_id = nv_window_belongs_to_crtc(scrn, draw->x,
-								draw->y,
-								draw->width,
-								draw->height);
-
-	/* Choose crtc with smallest index as reference, as its
-	 * vblank event triggered this swap. ref_crtc_hw_id is
-	 * a bit field (crtc 0 = bit 0, crtc 1 = bit 1 ...)
-	 */
-	ref_crtc_hw_id = 1 << (ffs(ref_crtc_hw_id) - 1);
+	ref_crtc = nouveau_pick_best_crtc(scrn, FALSE, draw->x, draw->y,
+                                      draw->width, draw->height);
 
 	/* Update frontbuffer pixmap and name: Could have changed due to
 	 * window (un)redirection as part of compositing.
@@ -711,7 +703,7 @@ nouveau_dri2_finish_swap(DrawablePtr draw, unsigned int frame,
 		if (nouveau_exa_pixmap_is_onscreen(dst_pix)) {
 			type = DRI2_FLIP_COMPLETE;
 			ret = dri2_page_flip(draw, src_pix, violate_oml(draw) ?
-					     NULL : s, ref_crtc_hw_id);
+					     NULL : s, ref_crtc);
 			if (!ret)
 				goto out;
 		}

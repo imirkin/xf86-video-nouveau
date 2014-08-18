@@ -36,21 +36,17 @@ static RRCrtcPtr
 nouveau_present_crtc(WindowPtr window)
 {
 	ScrnInfoPtr scrn = xf86ScreenToScrn(window->drawable.pScreen);
-	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(scrn);
 	xf86CrtcPtr crtc;
-	unsigned mask;
-	int head;
 
-	mask = nv_window_belongs_to_crtc(scrn, window->drawable.x,
-					       window->drawable.y,
-					       window->drawable.width,
-					       window->drawable.height);
+	crtc = nouveau_pick_best_crtc(scrn, FALSE,
+                                  window->drawable.x,
+                                  window->drawable.y,
+                                  window->drawable.width,
+                                  window->drawable.height);
 
-	head = ffs(mask) - 1;
-	if (head < 0 || head >= xf86_config->num_crtc)
+	if (!crtc)
 		return NULL;
 
-	crtc = xf86_config->crtc[head];
 	if (crtc->rotatedData)
 		return NULL;
 

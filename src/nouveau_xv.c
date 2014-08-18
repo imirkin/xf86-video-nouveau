@@ -196,6 +196,100 @@ static XF86ImageRec NVImages[NUM_IMAGES_ALL] =
 	XVIMAGE_RGB
 };
 
+static void
+nouveau_box_intersect(BoxPtr dest, BoxPtr a, BoxPtr b)
+{
+    dest->x1 = a->x1 > b->x1 ? a->x1 : b->x1;
+    dest->x2 = a->x2 < b->x2 ? a->x2 : b->x2;
+    dest->y1 = a->y1 > b->y1 ? a->y1 : b->y1;
+    dest->y2 = a->y2 < b->y2 ? a->y2 : b->y2;
+
+    if (dest->x1 >= dest->x2 || dest->y1 >= dest->y2)
+	dest->x1 = dest->x2 = dest->y1 = dest->y2 = 0;
+}
+
+static void
+nouveau_crtc_box(xf86CrtcPtr crtc, BoxPtr crtc_box)
+{
+    if (crtc->enabled) {
+	crtc_box->x1 = crtc->x;
+	crtc_box->x2 = crtc->x + xf86ModeWidth(&crtc->mode, crtc->rotation);
+	crtc_box->y1 = crtc->y;
+	crtc_box->y2 = crtc->y + xf86ModeHeight(&crtc->mode, crtc->rotation);
+    } else
+	crtc_box->x1 = crtc_box->x2 = crtc_box->y1 = crtc_box->y2 = 0;
+}
+
+static int
+nouveau_box_area(BoxPtr box)
+{
+    return (int) (box->x2 - box->x1) * (int) (box->y2 - box->y1);
+}
+
+xf86CrtcPtr
+nouveau_pick_best_crtc(ScrnInfoPtr pScrn, Bool consider_disabled,
+                       int x, int y, int w, int h)
+{
+    xf86CrtcConfigPtr   xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
+    int                 coverage, best_coverage, c;
+    BoxRec              box, crtc_box, cover_box;
+    RROutputPtr         primary_output = NULL;
+    xf86CrtcPtr         best_crtc = NULL, primary_crtc = NULL;
+
+    if (!pScrn->vtSema)
+	return NULL;
+
+    box.x1 = x;
+    box.x2 = x + w;
+    box.y1 = y;
+    box.y2 = y + h;
+    best_coverage = 0;
+
+    /* Prefer the CRTC of the primary output */
+#ifdef HAS_DIXREGISTERPRIVATEKEY
+    if (dixPrivateKeyRegistered(rrPrivKey))
+#endif
+    {
+	primary_output = RRFirstOutput(pScrn->pScreen);
+    }
+    if (primary_output && primary_output->crtc)
+	primary_crtc = primary_output->crtc->devPrivate;
+
+    /* first consider only enabled CRTCs */
+    for (c = 0; c < xf86_config->num_crtc; c++) {
+	xf86CrtcPtr crtc = xf86_config->crtc[c];
+
+	if (!crtc->enabled)
+	    continue;
+
+	nouveau_crtc_box(crtc, &crtc_box);
+	nouveau_box_intersect(&cover_box, &crtc_box, &box);
+	coverage = nouveau_box_area(&cover_box);
+	if (coverage > best_coverage ||
+	    (coverage == best_coverage && crtc == primary_crtc)) {
+	    best_crtc = crtc;
+	    best_coverage = coverage;
+	}
+    }
+    if (best_crtc || !consider_disabled)
+	return best_crtc;
+
+    /* if we found nothing, repeat the search including disabled CRTCs */
+    for (c = 0; c < xf86_config->num_crtc; c++) {
+	xf86CrtcPtr crtc = xf86_config->crtc[c];
+
+	nouveau_crtc_box(crtc, &crtc_box);
+	nouveau_box_intersect(&cover_box, &crtc_box, &box);
+	coverage = nouveau_box_area(&cover_box);
+	if (coverage > best_coverage ||
+	    (coverage == best_coverage && crtc == primary_crtc)) {
+	    best_crtc = crtc;
+	    best_coverage = coverage;
+	}
+    }
+    return best_crtc;
+}
+
 unsigned int
 nv_window_belongs_to_crtc(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 {

@@ -133,30 +133,29 @@ void
 NV11SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 {
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(ppix->drawable.pScreen);
-	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(pScrn);
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_pushbuf *push = pNv->pushbuf;
-	int crtcs;
+	int head;
+	xf86CrtcPtr crtc;
 
 	if (!nouveau_exa_pixmap_is_onscreen(ppix))
 		return;
 
-	crtcs = nv_window_belongs_to_crtc(pScrn, box->x1, box->y1,
-					  box->x2 - box->x1,
-					  box->y2 - box->y1);
-	if (!crtcs)
+	crtc = nouveau_pick_best_crtc(pScrn, FALSE, box->x1, box->y1,
+                                  box->x2 - box->x1,
+                                  box->y2 - box->y1);
+	if (!crtc)
 		return;
 
 	if (!PUSH_SPACE(push, 8))
 		return;
 
-	crtcs = ffs(crtcs) - 1;
-	crtcs = drmmode_head(config->crtc[crtcs]);
+	head = drmmode_head(crtc);
 
 	BEGIN_NV04(push, SUBC_BLIT(0x0000012C), 1);
 	PUSH_DATA (push, 0);
 	BEGIN_NV04(push, SUBC_BLIT(0x00000134), 1);
-	PUSH_DATA (push, crtcs);
+	PUSH_DATA (push, head);
 	BEGIN_NV04(push, SUBC_BLIT(0x00000100), 1);
 	PUSH_DATA (push, 0);
 	BEGIN_NV04(push, SUBC_BLIT(0x00000130), 1);
