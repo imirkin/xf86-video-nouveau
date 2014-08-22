@@ -165,6 +165,7 @@ typedef struct _NVPortPrivRec {
 	Bool		texture;
 	Bool		bicubic; /* only for texture adapter */
 	Bool		SyncToVBlank;
+	int             max_image_dim;
 	struct nouveau_bo *video_mem;
 	int		pitch;
 	int		offset;

@@ -1068,6 +1068,8 @@ NVPutImage(ScrnInfoPtr pScrn, short src_x, short src_y, short drw_x,
 	if (pPriv->grabbedByV4L)
 		return Success;
 
+	if (width > pPriv->max_image_dim || height > pPriv->max_image_dim)
+		return BadMatch;
 
 	NV_set_action_flags(pScrn, pDraw, pPriv, id, drw_x, drw_y, drw_w,
 			    drw_h, &action_flags);
@@ -1441,11 +1443,6 @@ NVQueryImageAttributes(ScrnInfoPtr pScrn, int id,
 {
 	int size, tmp;
 
-	if (*w > IMAGE_MAX_W)
-		*w = IMAGE_MAX_W;
-	if (*h > IMAGE_MAX_H)
-		*h = IMAGE_MAX_H;
-
 	*w = (*w + 1) & ~1; // width rounded up to an even number
 	if (offsets)
 		offsets[0] = 0;
@@ -1706,6 +1703,7 @@ NVSetupBlitVideo (ScreenPtr pScreen)
 	pPriv->bicubic			= FALSE;
 	pPriv->doubleBuffer		= FALSE;
 	pPriv->SyncToVBlank		= (pNv->dev->chipset >= 0x11);
+	pPriv->max_image_dim            = 2048;
 
 	pNv->blitAdaptor		= adapt;
 
@@ -1766,6 +1764,7 @@ NVSetupOverlayVideoAdapter(ScreenPtr pScreen)
 	pPriv->blitter			= FALSE;
 	pPriv->texture			= FALSE;
 	pPriv->bicubic			= FALSE;
+	pPriv->max_image_dim            = 2048;
 
 	NVSetPortDefaults (pScrn, pPriv);
 
@@ -1967,6 +1966,7 @@ NV30SetupTexturedVideo (ScreenPtr pScreen, Bool bicubic)
 	pPriv->bicubic			= bicubic;
 	pPriv->doubleBuffer		= FALSE;
 	pPriv->SyncToVBlank		= TRUE;
+	pPriv->max_image_dim            = 4096;
 
 	if (bicubic)
 		pNv->textureAdaptor[1]	= adapt;
@@ -2048,6 +2048,7 @@ NV40SetupTexturedVideo (ScreenPtr pScreen, Bool bicubic)
 	pPriv->bicubic			= bicubic;
 	pPriv->doubleBuffer		= FALSE;
 	pPriv->SyncToVBlank		= TRUE;
+	pPriv->max_image_dim            = 4096;
 
 	if (bicubic)
 		pNv->textureAdaptor[1]	= adapt;

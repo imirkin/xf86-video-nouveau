@@ -364,6 +364,7 @@ nv50_xv_set_port_defaults(ScrnInfoPtr pScrn, NVPortPrivPtr pPriv)
 	pPriv->saturation	= 0;
 	pPriv->hue		= 0;
 	pPriv->iturbt_709	= 0;
+	pPriv->max_image_dim    = 8192;
 }
 
 int
