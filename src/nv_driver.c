@@ -1138,10 +1138,10 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 			reason = ": Caution: Use of this swap limit > 1 violates OML_sync_control spec on this X-Server!\n";
 		}
 	} else {
-		/* Driver default: Double buffering on old servers, triple-buffering
-		 * on Xorg 1.12+.
+		/* Always default to double-buffering, because it avoids artifacts like
+		 * unthrottled rendering of non-fullscreen clients under desktop composition.
 		 */
-		pNv->swap_limit = (DRI2INFOREC_VERSION < 6) ? 1 : 2;
+		pNv->swap_limit = 1;
 		reason = "";
 		from = X_DEFAULT;
 	}

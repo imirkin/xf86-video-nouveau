@@ -124,7 +124,7 @@ OpenML OML_sync_control specification and will cause failure of software
 that relies on correct presentation timing behaviour as defined in that
 specification.
 .br
-Default: 2 for XOrg 1.12+, 1 for older servers.
+Default: 1.
 .SH "SEE ALSO"
 __xservername__(__appmansuffix__), __xconfigfile__(__filemansuffix__), Xserver(__appmansuffix__), X(__miscmansuffix__)
 .SH AUTHORS
