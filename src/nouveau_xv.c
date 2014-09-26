@@ -2142,7 +2142,7 @@ NVSetupTexturedVideo (ScreenPtr pScreen, XF86VideoAdaptorPtr *textureAdaptor)
 		textureAdaptor[0] = NV40SetupTexturedVideo(pScreen, FALSE);
 		textureAdaptor[1] = NV40SetupTexturedVideo(pScreen, TRUE);
 	} else
-	if (pNv->Architecture >= NV_TESLA && pNv->Architecture < NV_MAXWELL) {
+	if (pNv->Architecture >= NV_TESLA) {
 		textureAdaptor[0] = NV50SetupTexturedVideo(pScreen);
 	}
 }

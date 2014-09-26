@@ -914,14 +914,56 @@ NVC0EXAComposite(PixmapPtr pdpix,
 	if (!PUSH_SPACE(push, 64))
 		return;
 
+	if (pNv->dev->chipset >= 0x110) {
+		BEGIN_NVC0(push, NVC0_3D(CB_SIZE), 3);
+		PUSH_DATA (push, 256);
+		PUSH_DATA (push, (pNv->scratch->offset + PVP_DATA) >> 32);
+		PUSH_DATA (push, (pNv->scratch->offset + PVP_DATA));
+		BEGIN_1IC0(push, NVC0_3D(CB_POS), 24 + 1);
+		PUSH_DATA (push, 0x80);
+
+		PUSH_DATAf(push, dx);
+		PUSH_DATAf(push, dy + (h * 2));
+		PUSH_DATAf(push, 0);
+		PUSH_DATAf(push, 1);
+		PUSH_DATAf(push, sx);
+		PUSH_DATAf(push, sy + (h * 2));
+		PUSH_DATAf(push, mx);
+		PUSH_DATAf(push, my + (h * 2));
+
+		PUSH_DATAf(push, dx);
+		PUSH_DATAf(push, dy);
+		PUSH_DATAf(push, 0);
+		PUSH_DATAf(push, 1);
+		PUSH_DATAf(push, sx);
+		PUSH_DATAf(push, sy);
+		PUSH_DATAf(push, mx);
+		PUSH_DATAf(push, my);
+
+		PUSH_DATAf(push, dx + (w * 2));
+		PUSH_DATAf(push, dy);
+		PUSH_DATAf(push, 0);
+		PUSH_DATAf(push, 1);
+		PUSH_DATAf(push, sx + (w * 2));
+		PUSH_DATAf(push, sy);
+		PUSH_DATAf(push, mx + (w * 2));
+		PUSH_DATAf(push, my);
+	}
+
 	BEGIN_NVC0(push, NVC0_3D(SCISSOR_HORIZ(0)), 2);
 	PUSH_DATA (push, ((dx + w) << 16) | dx);
 	PUSH_DATA (push, ((dy + h) << 16) | dy);
 	BEGIN_NVC0(push, NVC0_3D(VERTEX_BEGIN_GL), 1);
 	PUSH_DATA (push, NVC0_3D_VERTEX_BEGIN_GL_PRIMITIVE_TRIANGLES);
-	PUSH_VTX2s(push, sx, sy + (h * 2), mx, my + (h * 2), dx, dy + (h * 2));
-	PUSH_VTX2s(push, sx, sy, mx, my, dx, dy);
-	PUSH_VTX2s(push, sx + (w * 2), sy, mx + (w * 2), my, dx + (w * 2), dy);
+	if (pNv->dev->chipset < 0x110) {
+		PUSH_VTX2s(push, sx, sy + (h * 2), mx, my + (h * 2), dx, dy + (h * 2));
+		PUSH_VTX2s(push, sx, sy, mx, my, dx, dy);
+		PUSH_VTX2s(push, sx + (w * 2), sy, mx + (w * 2), my, dx + (w * 2), dy);
+	} else {
+		BEGIN_NVC0(push, NVC0_3D(VERTEX_BUFFER_FIRST), 2);
+		PUSH_DATA (push, 0);
+		PUSH_DATA (push, 3);
+	}
 	BEGIN_NVC0(push, NVC0_3D(VERTEX_END_GL), 1);
 	PUSH_DATA (push, 0);
 }

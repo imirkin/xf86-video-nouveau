@@ -81,6 +81,7 @@ nouveau_copy_init(ScreenPtr pScreen)
 					 &pNv->ce_channel);
 		break;
 	case NV_KEPLER:
+	case NV_MAXWELL:
 		ret = nouveau_object_new(&pNv->dev->object, 0,
 					 NOUVEAU_FIFO_CHANNEL_CLASS,
 					 &(struct nve0_fifo) {

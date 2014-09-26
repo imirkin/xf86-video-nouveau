@@ -722,6 +722,7 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 	switch (pNv->Architecture) {
 	case NV_FERMI:
 	case NV_KEPLER:
+	case NV_MAXWELL:
 		INIT_CONTEXT_OBJECT(3D_NVC0);
 		break;
 	case NV_TESLA:

@@ -247,15 +247,57 @@ nvc0_xv_image_put(ScrnInfoPtr pScrn,
 		    nouveau_pushbuf_refn (push, refs, 3))
 			return BadImplementation;
 
+		if (pNv->dev->chipset >= 0x110) {
+			BEGIN_NVC0(push, NVC0_3D(CB_SIZE), 3);
+			PUSH_DATA (push, 256);
+			PUSH_DATA (push, (pNv->scratch->offset + PVP_DATA) >> 32);
+			PUSH_DATA (push, (pNv->scratch->offset + PVP_DATA));
+			BEGIN_1IC0(push, NVC0_3D(CB_POS), 24 + 1);
+			PUSH_DATA (push, 0x80);
+
+			PUSH_DATAf(push, sx1);
+			PUSH_DATAf(push, sy1);
+			PUSH_DATAf(push, 0);
+			PUSH_DATAf(push, 1);
+			PUSH_DATAf(push, tx1);
+			PUSH_DATAf(push, ty1);
+			PUSH_DATAf(push, 0);
+			PUSH_DATAf(push, 0);
+
+			PUSH_DATAf(push, sx2+(sx2-sx1));
+			PUSH_DATAf(push, sy1);
+			PUSH_DATAf(push, 0);
+			PUSH_DATAf(push, 1);
+			PUSH_DATAf(push, tx2+(tx2-tx1));
+			PUSH_DATAf(push, ty1);
+			PUSH_DATAf(push, 0);
+			PUSH_DATAf(push, 0);
+
+			PUSH_DATAf(push, sx1);
+			PUSH_DATAf(push, sy2+(sy2-sy1));
+			PUSH_DATAf(push, 0);
+			PUSH_DATAf(push, 1);
+			PUSH_DATAf(push, tx1);
+			PUSH_DATAf(push, ty2+(ty2-ty1));
+			PUSH_DATAf(push, 0);
+			PUSH_DATAf(push, 0);
+		}
+
 		BEGIN_NVC0(push, NVC0_3D(SCISSOR_HORIZ(0)), 2);
 		PUSH_DATA (push, sx2 << NVC0_3D_SCISSOR_HORIZ_MAX__SHIFT | sx1);
 		PUSH_DATA (push, sy2 << NVC0_3D_SCISSOR_VERT_MAX__SHIFT | sy1 );
 
 		BEGIN_NVC0(push, NVC0_3D(VERTEX_BEGIN_GL), 1);
 		PUSH_DATA (push, NVC0_3D_VERTEX_BEGIN_GL_PRIMITIVE_TRIANGLES);
-		PUSH_VTX1s(push, tx1, ty1, sx1, sy1);
-		PUSH_VTX1s(push, tx2+(tx2-tx1), ty1, sx2+(sx2-sx1), sy1);
-		PUSH_VTX1s(push, tx1, ty2+(ty2-ty1), sx1, sy2+(sy2-sy1));
+		if (pNv->dev->chipset < 0x110) {
+			PUSH_VTX1s(push, tx1, ty1, sx1, sy1);
+			PUSH_VTX1s(push, tx2+(tx2-tx1), ty1, sx2+(sx2-sx1), sy1);
+			PUSH_VTX1s(push, tx1, ty2+(ty2-ty1), sx1, sy2+(sy2-sy1));
+		} else {
+			BEGIN_NVC0(push, NVC0_3D(VERTEX_BUFFER_FIRST), 2);
+			PUSH_DATA (push, 0);
+			PUSH_DATA (push, 3);
+		}
 		BEGIN_NVC0(push, NVC0_3D(VERTEX_END_GL), 1);
 		PUSH_DATA (push, 0);
 
