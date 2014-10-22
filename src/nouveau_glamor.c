@@ -129,6 +129,11 @@ nouveau_glamor_set_shared_pixmap_backing(PixmapPtr pixmap, void *_handle)
 	if (ret)
 		return FALSE;
 
+	if (!priv) {
+		priv = calloc(1, sizeof(*priv));
+		nouveau_glamor_pixmap_set(pixmap, priv);
+	}
+
 	priv->bo = bo;
 	priv->shared = TRUE;
 	close(handle);
