@@ -721,6 +721,7 @@ NVCloseDRM(ScrnInfoPtr pScrn)
 	drmFree(pNv->drm_device_name);
 	nouveau_client_del(&pNv->client);
 	nouveau_device_del(&pNv->dev);
+	free(pNv->render_node);
 }
 
 static void
@@ -1467,6 +1468,9 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 	} else
 	if (pNv->AccelMethod == EXA) {
 		if (!nouveau_exa_init(pScreen))
+			return FALSE;
+
+		if (!nouveau_dri3_screen_init(pScreen))
 			return FALSE;
 	}
 

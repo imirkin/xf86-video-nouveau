@@ -140,6 +140,8 @@ typedef struct _NVRec {
 	PixmapPtr pspix, pmpix, pdpix;
 	PicturePtr pspict, pmpict;
 	Pixel fg_colour;
+
+	char *render_node;
 } NVRec;
 
 #define NVPTR(p) ((NVPtr)((p)->driverPrivate))
