@@ -1112,10 +1112,12 @@ static dri3_screen_info_rec nouveau_dri3_screen_info = {
         .pixmap_from_fd = nouveau_dri3_pixmap_from_fd,
         .fd_from_pixmap = nouveau_dri3_fd_from_pixmap
 };
+#endif
 
 Bool
 nouveau_dri3_screen_init(ScreenPtr screen)
 {
+#ifdef DRI3
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(screen);
 	NVPtr pNv = NVPTR(pScrn);
 	struct stat master, render;
@@ -1131,9 +1133,9 @@ nouveau_dri3_screen_init(ScreenPtr screen)
 	    (render.st_rdev & ~0x80) == master.st_rdev)
 		pNv->render_node = strdup(buf);
 
-	if (!pNv->render_node)
-		return TRUE;
-
-        return dri3_screen_init(screen, &nouveau_dri3_screen_info);
-}
+	if (pNv->render_node)
+		return dri3_screen_init(screen, &nouveau_dri3_screen_info);
 #endif
+
+        return TRUE;
+}
