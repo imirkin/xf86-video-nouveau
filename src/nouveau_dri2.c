@@ -1097,8 +1097,8 @@ static int nouveau_dri3_fd_from_pixmap(ScreenPtr screen, PixmapPtr pixmap, CARD1
 	struct nouveau_bo *bo = nouveau_pixmap_bo(pixmap);
 	int fd;
 
-	if (nouveau_bo_set_prime(bo, &fd) < 0)
-		return -1;
+	if (!bo || nouveau_bo_set_prime(bo, &fd) < 0)
+		return -EINVAL;
 
 	*stride = pixmap->devKind;
 	*size = bo->size;
