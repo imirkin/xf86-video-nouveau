@@ -1352,8 +1352,6 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 	}
 
 	nouveau_copy_init(pScreen);
-	nouveau_sync_init(pScreen);
-	nouveau_dri2_init(pScreen);
 
 	/* Allocate and map memory areas we need */
 	if (!NVMapMem(pScrn))
@@ -1462,15 +1460,17 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 	xf86SetBlackWhitePixels(pScreen);
 
 	nouveau_present_init(pScreen);
+	nouveau_sync_init(pScreen);
+	nouveau_dri2_init(pScreen);
 	if (pNv->AccelMethod == GLAMOR) {
 		if (!nouveau_glamor_init(pScreen))
 			return FALSE;
 	} else
 	if (pNv->AccelMethod == EXA) {
-		if (!nouveau_exa_init(pScreen))
+		if (!nouveau_dri3_screen_init(pScreen))
 			return FALSE;
 
-		if (!nouveau_dri3_screen_init(pScreen))
+		if (!nouveau_exa_init(pScreen))
 			return FALSE;
 	}
 
