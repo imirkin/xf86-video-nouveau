@@ -21,6 +21,7 @@
  */
 
 #include <stdio.h>
+#include <fcntl.h>
 
 #include "nv_include.h"
 
@@ -299,21 +300,21 @@ NVOpenNouveauDevice(struct pci_device *pci_dev,
 	char *busid;
 	int ret, fd = -1;
 
-#if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,9,99,901,0)
-	XNFasprintf(&busid, "pci:%04x:%02x:%02x.%d",
-		    pci_dev->domain, pci_dev->bus, pci_dev->dev, pci_dev->func);
-#else
-	busid = XNFprintf("pci:%04x:%02x:%02x.%d",
-			  pci_dev->domain, pci_dev->bus, pci_dev->dev, pci_dev->func);
+#ifdef ODEV_ATTRIB_PATH
+	if (platform_dev)
+		busid = NULL;
+	else
 #endif
-
-	if (probe) {
-		ret = drmCheckModesettingSupported(busid);
-		if (ret) {
-			xf86DrvMsg(scrnIndex, X_ERROR, "[drm] KMS not enabled\n");
-			free(busid);
-			return NULL;
-		}
+	{
+#if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,9,99,901,0)
+		XNFasprintf(&busid, "pci:%04x:%02x:%02x.%d",
+			    pci_dev->domain, pci_dev->bus,
+			    pci_dev->dev, pci_dev->func);
+#else
+		busid = XNFprintf("pci:%04x:%02x:%02x.%d",
+				  pci_dev->domain, pci_dev->bus,
+				  pci_dev->dev, pci_dev->func);
+#endif
 	}
 
 #if defined(ODEV_ATTRIB_FD)
@@ -323,6 +324,19 @@ NVOpenNouveauDevice(struct pci_device *pci_dev,
 #endif
 	if (fd != -1)
 		ret = nouveau_device_wrap(fd, 0, &dev);
+#ifdef ODEV_ATTRIB_PATH
+	else if (platform_dev) {
+		const char *path;
+
+		path = xf86_get_platform_device_attrib(platform_dev,
+						       ODEV_ATTRIB_PATH);
+
+		fd = open(path, O_RDWR | O_CLOEXEC);
+		ret = nouveau_device_wrap(fd, 1, &dev);
+		if (ret)
+			close(fd);
+	}
+#endif
 	else
 		ret = nouveau_device_open(busid, &dev);
 	if (ret)
@@ -416,9 +430,6 @@ NVPlatformProbe(DriverPtr driver,
 {
 	ScrnInfoPtr scrn = NULL;
 	uint32_t scr_flags = 0;
-
-	if (!dev->pdev)
-		return FALSE;
 
 	if (!NVHasKMS(dev->pdev, dev))
 		return FALSE;
