@@ -48,22 +48,15 @@ nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height, int bpp,
 	if (bpp >= 8)
 		flags |= shared ? NOUVEAU_BO_GART : NOUVEAU_BO_VRAM;
 
+	if (scanout && pNv->tiled_scanout)
+		tiled = TRUE;
+
 	if (pNv->Architecture >= NV_TESLA) {
-		if (scanout) {
-			if (pNv->tiled_scanout) {
-				tiled = TRUE;
-				*pitch = NOUVEAU_ALIGN(width * cpp, 64);
-			} else {
-				*pitch = NOUVEAU_ALIGN(width * cpp, 256);
-			}
-		} else {
-			if (bpp >= 8 && !shared)
-				tiled = TRUE;
-			*pitch = NOUVEAU_ALIGN(width * cpp, shared ? 256 : 64);
-		}
-	} else {
-		if (scanout && pNv->tiled_scanout)
+		if (!scanout && bpp >= 8 && !shared)
 			tiled = TRUE;
+
+		*pitch = NOUVEAU_ALIGN(width * cpp, !tiled ? 256 : 64);
+	} else {
 		*pitch = NOUVEAU_ALIGN(width * cpp, 64);
 	}
 
