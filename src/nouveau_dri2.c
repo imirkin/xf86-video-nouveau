@@ -1121,20 +1121,18 @@ nouveau_dri3_screen_init(ScreenPtr screen)
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(screen);
 	NVPtr pNv = NVPTR(pScrn);
 	struct stat master, render;
-	char buf[32];
+	char *buf;
 
 	if (is_render_node(pNv->dev->fd, &master))
 		return TRUE;
 
-	sprintf(buf, "/dev/dri/renderD%d", (int)((master.st_rdev & 0x3f) | 0x80));
-
-	if (stat(buf, &render) == 0 &&
-	    master.st_mode == render.st_mode &&
-	    (render.st_rdev & ~0x80) == master.st_rdev)
-		pNv->render_node = strdup(buf);
-
-	if (pNv->render_node)
+	buf = drmGetRenderDeviceNameFromFd(pNv->dev->fd);
+	if (buf && stat(buf, &render) == 0 &&
+	    master.st_mode == render.st_mode) {
+		pNv->render_node = buf;
 		return dri3_screen_init(screen, &nouveau_dri3_screen_info);
+	} else
+		free(buf);
 #endif
 
         return TRUE;
