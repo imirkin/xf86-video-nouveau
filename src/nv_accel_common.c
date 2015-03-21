@@ -145,13 +145,13 @@ NV11SyncToVBlank(PixmapPtr ppix, BoxPtr box)
 
 	head = drmmode_head(crtc);
 
-	BEGIN_NV04(push, SUBC_BLIT(0x0000012C), 1);
+	BEGIN_NV04(push, NV15_BLIT(FLIP_INCR_WRITE), 1);
 	PUSH_DATA (push, 0);
-	BEGIN_NV04(push, SUBC_BLIT(0x00000134), 1);
+	BEGIN_NV04(push, NV15_BLIT(FLIP_CRTC_INCR_READ), 1);
 	PUSH_DATA (push, head);
 	BEGIN_NV04(push, SUBC_BLIT(0x00000100), 1);
 	PUSH_DATA (push, 0);
-	BEGIN_NV04(push, SUBC_BLIT(0x00000130), 1);
+	BEGIN_NV04(push, NV15_BLIT(FLIP_WAIT), 1);
 	PUSH_DATA (push, 0);
 }
 

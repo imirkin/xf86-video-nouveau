@@ -110,13 +110,13 @@ NVAccelInit2D_NV50(ScrnInfoPtr pScrn)
 	/* Magics from nv, no clue what they do, but at least some
 	 * of them are needed to avoid crashes.
 	 */
-	BEGIN_NV04(push, SUBC_2D(0x0260), 1);
+	BEGIN_NV04(push, NV50_2D(UNK260), 1);
 	PUSH_DATA (push, 1);
 	BEGIN_NV04(push, NV50_2D(CLIP_ENABLE), 1);
 	PUSH_DATA (push, 1);
 	BEGIN_NV04(push, NV50_2D(COLOR_KEY_ENABLE), 1);
 	PUSH_DATA (push, 0);
-	BEGIN_NV04(push, SUBC_2D(0x058c), 1);
+	BEGIN_NV04(push, NV50_2D(UNK58C), 1);
 	PUSH_DATA (push, 0x111);
 
 	pNv->currentRop = 0xfffffffa;
@@ -205,7 +205,7 @@ NVAccelInitNV50TCL(ScrnInfoPtr pScrn)
 
 	BEGIN_NV04(push, NV50_3D(VIEWPORT_TRANSFORM_EN), 1);
 	PUSH_DATA (push, 0);
-	BEGIN_NV04(push, SUBC_3D(0x0f90), 1);
+	BEGIN_NV04(push, NV50_3D(COLOR_MASK_COMMON), 1);
 	PUSH_DATA (push, 1);
 
 	BEGIN_NV04(push, NV50_3D(TIC_ADDRESS_HIGH), 3);

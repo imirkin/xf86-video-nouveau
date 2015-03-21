@@ -180,9 +180,9 @@ NVAccelInit2D_NVC0(ScrnInfoPtr pScrn)
 	PUSH_DATA (push, 1);
 	BEGIN_NVC0(push, NV50_2D(COLOR_KEY_ENABLE), 1);
 	PUSH_DATA (push, 0);
-	BEGIN_NVC0(push, SUBC_2D(0x0884), 1);
+	BEGIN_NVC0(push, NV50_2D(UNK0884), 1);
 	PUSH_DATA (push, 0x3f);
-	BEGIN_NVC0(push, SUBC_2D(0x0888), 1);
+	BEGIN_NVC0(push, NV50_2D(UNK0888), 1);
 	PUSH_DATA (push, 1);
 	BEGIN_NVC0(push, NV50_2D(ROP), 1);
 	PUSH_DATA (push, 0x55);
