@@ -332,13 +332,24 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 	ExaDriverPtr exa = pNv->EXADriverPtr;
 	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
 	struct nouveau_bo *bo = NULL;
-	PixmapPtr pspix, pdpix;
+	PixmapPtr pspix, pdpix = NULL;
 	drmModeFBPtr fb;
 	unsigned w = pScrn->virtualX, h = pScrn->virtualY;
 	int i, ret, fbcon_id = 0;
 
 	if (pNv->AccelMethod != EXA)
 		goto fallback;
+
+	pdpix = drmmode_pixmap_wrap(pScreen, pScrn->virtualX,
+				    pScrn->virtualY, pScrn->depth,
+				    pScrn->bitsPerPixel, pScrn->displayWidth *
+				    pScrn->bitsPerPixel / 8, pNv->scanout,
+				    NULL);
+	if (!pdpix) {
+		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+			   "Failed to init scanout pixmap for fbcon mirror\n");
+		goto fallback;
+	}
 
 	for (i = 0; i < xf86_config->num_crtc; i++) {
 		drmmode_crtc_private_ptr drmmode_crtc =
@@ -382,18 +393,6 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 		goto fallback;
 	}
 
-	pdpix = drmmode_pixmap_wrap(pScreen, pScrn->virtualX,
-				    pScrn->virtualY, pScrn->depth,
-				    pScrn->bitsPerPixel, pScrn->displayWidth *
-				    pScrn->bitsPerPixel / 8, pNv->scanout,
-				    NULL);
-	if (!pdpix) {
-		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
-			   "Failed to init scanout pixmap for fbcon mirror\n");
-		pScreen->DestroyPixmap(pspix);
-		goto fallback;
-	}
-
 	exa->PrepareCopy(pspix, pdpix, 0, 0, GXcopy, ~0);
 	exa->Copy(pdpix, 0, 0, 0, 0, w, h);
 	exa->DoneCopy(pdpix);
@@ -410,6 +409,14 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 	return;
 
 fallback:
+	if (pdpix) {
+		pNv->EXADriverPtr->PrepareSolid(pdpix, GXcopy, ~0, 0);
+		pNv->EXADriverPtr->Solid(pdpix, 0, 0, w, h);
+		pNv->EXADriverPtr->DoneSolid(pdpix);
+		pScreen->DestroyPixmap(pdpix);
+		nouveau_bo_wait(pNv->scanout, NOUVEAU_BO_RDWR, pNv->client);
+		return;
+	}
 #endif
 	if (nouveau_bo_map(pNv->scanout, NOUVEAU_BO_WR, pNv->client))
 		return;
