@@ -410,11 +410,11 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 
 fallback:
 	if (pdpix) {
-		pNv->EXADriverPtr->PrepareSolid(pdpix, GXcopy, ~0, 0);
+		pNv->EXADriverPtr->PrepareSolid(pdpix, GXclear, ~0, 0);
 		pNv->EXADriverPtr->Solid(pdpix, 0, 0, w, h);
 		pNv->EXADriverPtr->DoneSolid(pdpix);
-		pScreen->DestroyPixmap(pdpix);
 		nouveau_bo_wait(pNv->scanout, NOUVEAU_BO_RDWR, pNv->client);
+		pScreen->DestroyPixmap(pdpix);
 		return;
 	}
 #endif
