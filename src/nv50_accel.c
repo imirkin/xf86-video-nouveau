@@ -207,6 +207,8 @@ NVAccelInitNV50TCL(ScrnInfoPtr pScrn)
 	PUSH_DATA (push, 0);
 	BEGIN_NV04(push, NV50_3D(COLOR_MASK_COMMON), 1);
 	PUSH_DATA (push, 1);
+	BEGIN_NV04(push, NV50_3D(ZETA_ENABLE), 1);
+	PUSH_DATA (push, 0);
 
 	BEGIN_NV04(push, NV50_3D(TIC_ADDRESS_HIGH), 3);
 	PUSH_DATA (push, (pNv->scratch->offset + TIC_OFFSET) >> 32);
