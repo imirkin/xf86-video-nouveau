@@ -410,7 +410,7 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 
 fallback:
 	if (pdpix) {
-		if (exa->PrepareSolid(pdpix, GXclear, ~0, 0)) {
+		if (exa->PrepareSolid(pdpix, GXcopy, ~0, 0)) {
 			exa->Solid(pdpix, 0, 0, w, h);
 			exa->DoneSolid(pdpix);
 			PUSH_KICK(pNv->pushbuf);
