@@ -1211,7 +1211,7 @@ drmmode_zaphod_match(ScrnInfoPtr pScrn, const char *s, char *output_name)
 }
 
 static unsigned int
-drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
+drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num, int crtcshift)
 {
 	NVPtr pNv = NVPTR(pScrn);
 	xf86OutputPtr output;
@@ -1293,8 +1293,8 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 	output->subpixel_order = subpixel_conv_table[koutput->subpixel];
 	output->driver_private = drmmode_output;
 
-	output->possible_crtcs = kencoder->possible_crtcs;
-	output->possible_clones = kencoder->possible_clones;
+	output->possible_crtcs = kencoder->possible_crtcs >> crtcshift;
+	output->possible_clones = kencoder->possible_clones >> crtcshift;
 
 	output->interlaceAllowed = true;
 	output->doubleScanAllowed = true;
@@ -1415,6 +1415,7 @@ Bool drmmode_pre_init(ScrnInfoPtr pScrn, int fd, int cpp)
 	NVEntPtr pNVEnt = NVEntPriv(pScrn);
 	int i;
 	unsigned int crtcs_needed = 0;
+	int crtcshift;
 
 	drmmode = xnfalloc(sizeof *drmmode);
 	drmmode->fd = fd;
@@ -1438,8 +1439,9 @@ Bool drmmode_pre_init(ScrnInfoPtr pScrn, int fd, int cpp)
 	}
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Initializing outputs ...\n");
+	crtcshift = ffs(pNVEnt->assigned_crtcs ^ 0xffffffff) - 1;
 	for (i = 0; i < drmmode->mode_res->count_connectors; i++)
-		crtcs_needed += drmmode_output_init(pScrn, drmmode, i);
+		crtcs_needed += drmmode_output_init(pScrn, drmmode, i, crtcshift);
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 		   "%d crtcs needed for screen.\n", crtcs_needed);
