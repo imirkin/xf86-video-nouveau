@@ -34,7 +34,6 @@
 #endif
 
 #include "nouveau_copy.h"
-#include "nouveau_glamor.h"
 #include "nouveau_present.h"
 #include "nouveau_sync.h"
 
@@ -625,9 +624,6 @@ NVCreateScreenResources(ScreenPtr pScreen)
 	if (pNv->AccelMethod == EXA) {
 		PixmapPtr ppix = pScreen->GetScreenPixmap(pScreen);
 		nouveau_bo_ref(pNv->scanout, &nouveau_pixmap(ppix)->bo);
-	} else
-	if (pNv->AccelMethod == GLAMOR) {
-		nouveau_glamor_create_screen_resources(pScreen);
 	}
 
 	return TRUE;
@@ -1049,9 +1045,6 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	if (string) {
 		if      (!strcmp(string,   "none")) pNv->AccelMethod = NONE;
 		else if (!strcmp(string,    "exa")) pNv->AccelMethod = EXA;
-#ifdef HAVE_GLAMOR
-		else if (!strcmp(string, "glamor")) pNv->AccelMethod = GLAMOR;
-#endif
 		else {
 			xf86DrvMsg(pScrn->scrnIndex, X_CONFIG,
 				   "Invalid AccelMethod specified\n");
@@ -1085,11 +1078,6 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 				pNv->Options, OPTION_WFB, FALSE);
 
 		pNv->tiled_scanout = TRUE;
-	}
-
-	if (pNv->AccelMethod == GLAMOR) {
-		if (!nouveau_glamor_pre_init(pScrn))
-			pNv->AccelMethod = EXA;
 	}
 
 	pNv->ce_enabled =
@@ -1502,10 +1490,6 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 
 	nouveau_sync_init(pScreen);
 	nouveau_dri2_init(pScreen);
-	if (pNv->AccelMethod == GLAMOR) {
-		if (!nouveau_glamor_init(pScreen))
-			return FALSE;
-	} else
 	if (pNv->AccelMethod == EXA) {
 		if (pNv->max_dri_level >= 3 &&
 		    !nouveau_dri3_screen_init(pScreen))

@@ -25,7 +25,6 @@
 #include "nouveau_present.h"
 #if defined(DRI3)
 #include "nv_include.h"
-#include "nouveau_glamor.h"
 #include "xf86drmMode.h"
 
 struct nouveau_present {
@@ -177,37 +176,11 @@ static Bool
 nouveau_present_flip_exec(ScrnInfoPtr scrn, uint64_t event_id, int sync,
 			  uint64_t target_msc, PixmapPtr pixmap, Bool vsync)
 {
-	ScreenPtr screen = scrn->pScreen;
-	struct nouveau_pixmap *priv = NULL;
+	struct nouveau_pixmap *priv = nouveau_pixmap(pixmap);
 	NVPtr pNv = NVPTR(scrn);
 	uint32_t next_fb;
-	CARD16 stride;
-	CARD32 size;
 	void *token;
 	int ret;
-
-#ifdef HAVE_GLAMOR
-	if (pNv->AccelMethod == GLAMOR &&
-	    !(priv = nouveau_glamor_pixmap_get(pixmap))) {
-		int fd = glamor_fd_from_pixmap(screen, pixmap, &stride, &size);
-		if (fd < 0)
-			return FALSE;
-
-		priv = calloc(1, sizeof(*priv));
-		if (!priv)
-			return FALSE;
-
-		ret = nouveau_bo_prime_handle_ref(pNv->dev, fd, &priv->bo);
-		if (ret) {
-			free(priv);
-			return FALSE;
-		}
-
-		nouveau_glamor_pixmap_set(pixmap, priv);
-	} else
-#endif
-	if (!priv)
-		priv = nouveau_pixmap(pixmap);
 
 	ret = drmModeAddFB(pNv->dev->fd, pixmap->drawable.width,
 			   pixmap->drawable.height, pixmap->drawable.depth,

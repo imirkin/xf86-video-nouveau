@@ -42,8 +42,6 @@
 #include "libudev.h"
 #endif
 
-#include "nouveau_glamor.h"
-
 static Bool drmmode_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height);
 typedef struct {
     int fd;
@@ -107,8 +105,6 @@ static inline struct nouveau_pixmap *
 drmmode_pixmap(PixmapPtr ppix)
 {
 	NVPtr pNv = NVPTR(xf86ScreenToScrn(ppix->drawable.pScreen));
-	if (pNv->AccelMethod == GLAMOR)
-		return nouveau_glamor_pixmap_get(ppix);
 	return nouveau_pixmap(ppix);
 }
 
@@ -1392,9 +1388,6 @@ drmmode_xf86crtc_resize(ScrnInfoPtr scrn, int width, int height)
 		drmmode_set_mode_major(crtc, &crtc->mode,
 				       crtc->rotation, crtc->x, crtc->y);
 	}
-
-	if (pNv->AccelMethod == GLAMOR)
-		nouveau_glamor_create_screen_resources(scrn->pScreen);
 
 	if (old_fb_id)
 		drmModeRmFB(drmmode->fd, old_fb_id);

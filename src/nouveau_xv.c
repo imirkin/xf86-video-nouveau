@@ -38,7 +38,6 @@
 
 #include "nv_include.h"
 #include "nv_dma.h"
-#include "nouveau_glamor.h"
 
 #include "vl_hwmc.h"
 
@@ -2182,9 +2181,6 @@ NVInitVideo(ScreenPtr pScreen)
 		}
 
 		NVSetupTexturedVideo(pScreen, textureAdaptor);
-	} else
-	if (pNv->AccelMethod == GLAMOR) {
-		blitAdaptor = nouveau_glamor_xv_init(pScreen, 16);
 	}
 
 	num_adaptors = xf86XVListGenericAdaptors(pScrn, &adaptors);
