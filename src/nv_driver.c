@@ -389,10 +389,9 @@ NVHasKMS(struct pci_device *pci_dev, struct xf86_platform_device *platform_dev)
 	case 0xe0:
 	case 0xf0:
 	case 0x100:
-	case 0x110:
 		break;
 	default:
-		xf86DrvMsg(-1, X_ERROR, "Unknown chipset: NV%02x\n", chipset);
+		xf86DrvMsg(-1, X_ERROR, "Unknown chipset: NV%02X\n", chipset);
 		return FALSE;
 	}
 	return TRUE;
