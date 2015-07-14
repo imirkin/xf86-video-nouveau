@@ -170,9 +170,13 @@ nouveau_dri2_copy_region2(ScreenPtr pScreen, DrawablePtr pDraw, RegionPtr pRegio
 	}
 
 	if (translate && pDraw->type == DRAWABLE_WINDOW) {
+#ifdef COMPOSITE
 		PixmapPtr pPix = get_drawable_pixmap(pDraw);
-		off_x = pDraw->x - pPix->screen_x;
-		off_y = pDraw->y - pPix->screen_y;
+		off_x = -pPix->screen_x;
+		off_y = -pPix->screen_y;
+#endif
+		off_x += pDraw->x;
+		off_y += pDraw->y;
 	}
 
 	pGC = GetScratchGC(pDraw->depth, pScreen);
