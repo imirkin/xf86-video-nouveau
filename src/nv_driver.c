@@ -1095,6 +1095,25 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	pNv->ce_enabled =
 		xf86ReturnOptValBool(pNv->Options, OPTION_ASYNC_COPY, FALSE);
 
+	/* Define maximum allowed level of DRI implementation to use.
+	 * We default to DRI2 on EXA for now, as DRI3 still has some
+	 * problems. However, the max_dri_level can be only honored
+	 * by EXA, as GLAMOR only supports DRI3 at the moment.
+	 */
+	pNv->max_dri_level = (pNv->AccelMethod == GLAMOR) ? 3 : 2;
+	from = X_DEFAULT;
+
+	if (xf86GetOptValInteger(pNv->Options, OPTION_DRI,
+				 &pNv->max_dri_level)) {
+		from = X_CONFIG;
+		if (pNv->max_dri_level < 2)
+			pNv->max_dri_level = 2;
+		if (pNv->max_dri_level > 3)
+			pNv->max_dri_level = 3;
+	}
+	xf86DrvMsg(pScrn->scrnIndex, from, "Allowed maximum DRI level %i.\n",
+		   pNv->max_dri_level);
+
 	if (pNv->AccelMethod > NONE && pNv->dev->chipset >= 0x11) {
 		from = X_DEFAULT;
 		pNv->glx_vblank = TRUE;
@@ -1474,7 +1493,13 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 
 	xf86SetBlackWhitePixels(pScreen);
 
-	nouveau_present_init(pScreen);
+	if (nouveau_present_init(pScreen))
+		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+			   "Hardware support for Present enabled\n");
+	else
+		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+			   "Hardware support for Present disabled\n");
+
 	nouveau_sync_init(pScreen);
 	nouveau_dri2_init(pScreen);
 	if (pNv->AccelMethod == GLAMOR) {
@@ -1482,7 +1507,8 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 			return FALSE;
 	} else
 	if (pNv->AccelMethod == EXA) {
-		if (!nouveau_dri3_screen_init(pScreen))
+		if (pNv->max_dri_level >= 3 &&
+		    !nouveau_dri3_screen_init(pScreen))
 			return FALSE;
 
 		if (!nouveau_exa_init(pScreen))

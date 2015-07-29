@@ -1134,7 +1134,16 @@ nouveau_dri3_screen_init(ScreenPtr screen)
 	if (buf && stat(buf, &render) == 0 &&
 	    master.st_mode == render.st_mode) {
 		pNv->render_node = buf;
-		return dri3_screen_init(screen, &nouveau_dri3_screen_info);
+		if (dri3_screen_init(screen, &nouveau_dri3_screen_info)) {
+			xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+				   "DRI3 on EXA enabled\n");
+			return TRUE;
+		}
+		else {
+			xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
+				   "DRI3 on EXA initialization failed\n");
+			return FALSE;
+		}
 	} else
 		free(buf);
 #endif

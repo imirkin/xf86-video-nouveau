@@ -71,6 +71,7 @@ typedef struct _NVRec {
     Bool		has_pageflip;
     int 		swap_limit;
     int 		max_swap_limit;
+    int 		max_dri_level;
 
     ScreenBlockHandlerProcPtr BlockHandler;
     CreateScreenResourcesProcPtr CreateScreenResources;

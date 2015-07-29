@@ -240,7 +240,7 @@ nouveau_glamor_init(ScreenPtr screen)
 	screen->SharePixmapBacking = nouveau_glamor_share_pixmap_backing;
 	screen->SetSharedPixmapBacking = nouveau_glamor_set_shared_pixmap_backing;
 
-	xf86DrvMsg(scrn->scrnIndex, X_INFO, "[GLAMOR] initialised\n");
+	xf86DrvMsg(scrn->scrnIndex, X_INFO, "[GLAMOR] initialised with DRI3\n");
 	pNv->Flush = nouveau_glamor_flush;
 	return TRUE;
 }
