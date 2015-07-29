@@ -293,7 +293,7 @@ nouveau_present_fini(ScreenPtr screen)
 	}
 }
 
-int
+Bool
 nouveau_present_init(ScreenPtr screen)
 {
 	ScrnInfoPtr scrn = xf86ScreenToScrn(screen);
@@ -304,7 +304,7 @@ nouveau_present_init(ScreenPtr screen)
 
 	present = pNv->present = calloc(1, sizeof(*present));
 	if (!present)
-		return -ENOMEM;
+		return FALSE;
 
 	present->info.version = PRESENT_SCREEN_INFO_VERSION;
 	present->info.get_crtc = nouveau_present_crtc;
