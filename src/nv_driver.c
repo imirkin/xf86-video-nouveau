@@ -1051,12 +1051,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 	}
 
 	if (pNv->AccelMethod == UNKNOWN) {
-#ifdef HAVE_GLAMOR
-		if (pNv->Architecture >= NV_MAXWELL)
-			pNv->AccelMethod = GLAMOR;
-		else
-#endif
-			pNv->AccelMethod = EXA;
+		pNv->AccelMethod = EXA;
 	}
 
 	if (xf86ReturnOptValBool(pNv->Options, OPTION_NOACCEL, FALSE)) {
@@ -1084,10 +1079,9 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
 
 	/* Define maximum allowed level of DRI implementation to use.
 	 * We default to DRI2 on EXA for now, as DRI3 still has some
-	 * problems. However, the max_dri_level can be only honored
-	 * by EXA, as GLAMOR only supports DRI3 at the moment.
+	 * problems.
 	 */
-	pNv->max_dri_level = (pNv->AccelMethod == GLAMOR) ? 3 : 2;
+	pNv->max_dri_level = 2;
 	from = X_DEFAULT;
 
 	if (xf86GetOptValInteger(pNv->Options, OPTION_DRI,

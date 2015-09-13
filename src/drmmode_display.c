@@ -104,7 +104,6 @@ drmmode_from_scrn(ScrnInfoPtr scrn)
 static inline struct nouveau_pixmap *
 drmmode_pixmap(PixmapPtr ppix)
 {
-	NVPtr pNv = NVPTR(xf86ScreenToScrn(ppix->drawable.pScreen));
 	return nouveau_pixmap(ppix);
 }
 
