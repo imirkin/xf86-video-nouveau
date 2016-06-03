@@ -680,10 +680,16 @@ drmmode_set_scanout_pixmap(xf86CrtcPtr crtc, PixmapPtr ppix)
 	PixmapPtr screenpix = screen->GetScreenPixmap(screen);
 	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(crtc->scrn);
 	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
+	drmmode_ptr drmmode = drmmode_crtc->drmmode;
 	int c, total_width = 0, max_height = 0, this_x = 0;
 	if (!ppix) {
-		if (crtc->randr_crtc->scanout_pixmap)
+		if (crtc->randr_crtc->scanout_pixmap) {
 			PixmapStopDirtyTracking(crtc->randr_crtc->scanout_pixmap, screenpix);
+			if (drmmode && drmmode->fb_id) {
+				drmModeRmFB(drmmode->fd, drmmode->fb_id);
+				drmmode->fb_id = 0;
+			}
+		}
 		drmmode_crtc->scanout_pixmap_x = 0;
 		return TRUE;
 	}
