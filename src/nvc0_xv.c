@@ -74,7 +74,6 @@ nvc0_xv_image_put(ScrnInfoPtr pScrn,
 		{ dst, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR },
 	};
 	struct nouveau_pushbuf *push = pNv->pushbuf;
-	uint32_t mode = 0xd0005000 | (src->config.nvc0.tile_mode << 18);
 	float X1, X2, Y1, Y2;
 	BoxPtr pbox;
 	int nbox;
@@ -105,71 +104,49 @@ nvc0_xv_image_put(ScrnInfoPtr pScrn,
 
 	PUSH_DATAu(push, pNv->scratch, TIC_OFFSET, 16);
 	if (id == FOURCC_YV12 || id == FOURCC_I420) {
-	PUSH_DATA (push, NV50TIC_0_0_MAPA_C0 | NV50TIC_0_0_TYPEA_UNORM |
+		PUSH_TIC(push, src, packed_y, width, height, 0,
+			 NV50TIC_0_0_MAPA_C0 | NV50TIC_0_0_TYPEA_UNORM |
 			 NV50TIC_0_0_MAPB_ZERO | NV50TIC_0_0_TYPEB_UNORM |
 			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
 			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
 			 NV50TIC_0_0_FMT_8);
-	PUSH_DATA (push, ((src->offset + packed_y)));
-	PUSH_DATA (push, ((src->offset + packed_y) >> 32) | mode);
-	PUSH_DATA (push, 0x00300000);
-	PUSH_DATA (push, width);
-	PUSH_DATA (push, (1 << NV50TIC_0_5_DEPTH_SHIFT) | height);
-	PUSH_DATA (push, 0x03000000);
-	PUSH_DATA (push, 0x00000000);
-	PUSH_DATA (push, NV50TIC_0_0_MAPA_C1 | NV50TIC_0_0_TYPEA_UNORM |
+		PUSH_TIC(push, src, uv, width >> 1, height >> 1, 0,
+			 NV50TIC_0_0_MAPA_C1 | NV50TIC_0_0_TYPEA_UNORM |
 			 NV50TIC_0_0_MAPB_C0 | NV50TIC_0_0_TYPEB_UNORM |
 			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
 			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
 			 NV50TIC_0_0_FMT_8_8);
-	PUSH_DATA (push, ((src->offset + uv)));
-	PUSH_DATA (push, ((src->offset + uv) >> 32) | mode);
-	PUSH_DATA (push, 0x00300000);
-	PUSH_DATA (push, width >> 1);
-	PUSH_DATA (push, (1 << NV50TIC_0_5_DEPTH_SHIFT) | (height >> 1));
-	PUSH_DATA (push, 0x03000000);
-	PUSH_DATA (push, 0x00000000);
 	} else {
-	if (id == FOURCC_UYVY) {
-	PUSH_DATA (push, NV50TIC_0_0_MAPA_C1 | NV50TIC_0_0_TYPEA_UNORM |
+		unsigned format;
+		if (id == FOURCC_UYVY) {
+		format = NV50TIC_0_0_MAPA_C1 | NV50TIC_0_0_TYPEA_UNORM |
 			 NV50TIC_0_0_MAPB_ZERO | NV50TIC_0_0_TYPEB_UNORM |
 			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
 			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
-			 NV50TIC_0_0_FMT_8_8);
-	} else {
-	PUSH_DATA (push, NV50TIC_0_0_MAPA_C0 | NV50TIC_0_0_TYPEA_UNORM |
+			 NV50TIC_0_0_FMT_8_8;
+		} else {
+		format = NV50TIC_0_0_MAPA_C0 | NV50TIC_0_0_TYPEA_UNORM |
 			 NV50TIC_0_0_MAPB_ZERO | NV50TIC_0_0_TYPEB_UNORM |
 			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
 			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
-			 NV50TIC_0_0_FMT_8_8);
-	}
-	PUSH_DATA (push, ((src->offset + packed_y)));
-	PUSH_DATA (push, ((src->offset + packed_y) >> 32) | mode);
-	PUSH_DATA (push, 0x00300000);
-	PUSH_DATA (push, width);
-	PUSH_DATA (push, (1 << NV50TIC_0_5_DEPTH_SHIFT) | height);
-	PUSH_DATA (push, 0x03000000);
-	PUSH_DATA (push, 0x00000000);
-	if (id == FOURCC_UYVY) {
-	PUSH_DATA (push, NV50TIC_0_0_MAPA_C2 | NV50TIC_0_0_TYPEA_UNORM |
+			 NV50TIC_0_0_FMT_8_8;
+		}
+		PUSH_TIC(push, src, packed_y, width, height, 0, format);
+
+		if (id == FOURCC_UYVY) {
+		format = NV50TIC_0_0_MAPA_C2 | NV50TIC_0_0_TYPEA_UNORM |
 			 NV50TIC_0_0_MAPB_C0 | NV50TIC_0_0_TYPEB_UNORM |
 			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
 			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
-			 NV50TIC_0_0_FMT_8_8_8_8);
-	} else {
-	PUSH_DATA (push, NV50TIC_0_0_MAPA_C3 | NV50TIC_0_0_TYPEA_UNORM |
+			 NV50TIC_0_0_FMT_8_8_8_8;
+		} else {
+		format = NV50TIC_0_0_MAPA_C3 | NV50TIC_0_0_TYPEA_UNORM |
 			 NV50TIC_0_0_MAPB_C1 | NV50TIC_0_0_TYPEB_UNORM |
 			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
 			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
-			 NV50TIC_0_0_FMT_8_8_8_8);
-	}
-	PUSH_DATA (push, ((src->offset + packed_y)));
-	PUSH_DATA (push, ((src->offset + packed_y) >> 32) | mode);
-	PUSH_DATA (push, 0x00300000);
-	PUSH_DATA (push, (width >> 1));
-	PUSH_DATA (push, (1 << NV50TIC_0_5_DEPTH_SHIFT) | height);
-	PUSH_DATA (push, 0x03000000);
-	PUSH_DATA (push, 0x00000000);
+			 NV50TIC_0_0_FMT_8_8_8_8;
+		}
+		PUSH_TIC(push, src, packed_y, width >> 1, height, 0, format);
 	}
 
 	PUSH_DATAu(push, pNv->scratch, TSC_OFFSET, 16);

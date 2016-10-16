@@ -322,6 +322,17 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 		PUSH_DATA (push, (bo->offset + MISC_OFFSET) >> 32);
 		PUSH_DATA (push, (bo->offset + MISC_OFFSET));
 		PUSH_DATA (push, 1);
+	} else {
+		/* Use new TIC format. Not strictly necessary for GM20x+ */
+		IMMED_NVC0(push, SUBC_3D(0x0f10), 1);
+		if (pNv->dev->chipset >= 0x120) {
+			/* Use center sample locations. */
+			BEGIN_NVC0(push, SUBC_3D(0x11e0), 4);
+			PUSH_DATA (push, 0x88888888);
+			PUSH_DATA (push, 0x88888888);
+			PUSH_DATA (push, 0x88888888);
+			PUSH_DATA (push, 0x88888888);
+		}
 	}
 
 	BEGIN_NVC0(push, NVC0_3D(CODE_ADDRESS_HIGH), 2);

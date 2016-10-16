@@ -532,20 +532,13 @@ NVC0EXACheckTexture(PicturePtr ppict, PicturePtr pdpict, int op)
 static Bool
 NVC0EXAPictSolid(NVPtr pNv, PicturePtr ppict, unsigned unit)
 {
-	uint64_t offset = pNv->scratch->offset + SOLID(unit);
 	struct nouveau_pushbuf *push = pNv->pushbuf;
 
 	PUSH_DATAu(push, pNv->scratch, SOLID(unit), 1);
 	PUSH_DATA (push, ppict->pSourcePict->solidFill.color);
 	PUSH_DATAu(push, pNv->scratch, TIC_OFFSET + (unit * 32), 8);
-	PUSH_DATA (push, _(B_C0, G_C1, R_C2, A_C3, 8_8_8_8));
-	PUSH_DATA (push,  offset);
-	PUSH_DATA (push, (offset >> 32) | 0xd005d000);
-	PUSH_DATA (push, 0x00300000);
-	PUSH_DATA (push, 0x00000001);
-	PUSH_DATA (push, 0x00010001);
-	PUSH_DATA (push, 0x03000000);
-	PUSH_DATA (push, 0x00000000);
+	PUSH_TIC  (push, pNv->scratch, SOLID(unit), 1, 1, 4,
+		   _(B_C0, G_C1, R_C2, A_C3, 8_8_8_8));
 	PUSH_DATAu(push, pNv->scratch, TSC_OFFSET + (unit * 32), 8);
 	PUSH_DATA (push, NV50TSC_1_0_WRAPS_REPEAT |
 			 NV50TSC_1_0_WRAPT_REPEAT |
@@ -651,16 +644,8 @@ NVC0EXAPictTexture(NVPtr pNv, PixmapPtr ppix, PicturePtr ppict, unsigned unit)
 
 	PUSH_REFN (push, bo, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
 	PUSH_DATAu(push, pNv->scratch, TIC_OFFSET + (unit * 32), 8);
-	PUSH_DATA (push, format);
-	PUSH_DATA (push, bo->offset);
-	PUSH_DATA (push, (bo->offset >> 32) |
-			 (bo->config.nvc0.tile_mode << 18) |
-			 0xd0005000);
-	PUSH_DATA (push, 0x00300000);
-	PUSH_DATA (push, (1 << 31) | ppix->drawable.width);
-	PUSH_DATA (push, (1 << 16) | ppix->drawable.height);
-	PUSH_DATA (push, 0x03000000);
-	PUSH_DATA (push, 0x00000000);
+	PUSH_TIC  (push, bo, 0, ppix->drawable.width, ppix->drawable.height, 0,
+		   format);
 
 	PUSH_DATAu(push, pNv->scratch, TSC_OFFSET + (unit * 32), 8);
 	if (ppict->repeat) {
