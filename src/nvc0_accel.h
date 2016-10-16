@@ -12,6 +12,7 @@
 /* subchannel assignments, compatible with kepler's fixed layout  */
 #define SUBC_3D(mthd)    0, (mthd)
 #define NVC0_3D(mthd)    SUBC_3D(NVC0_3D_##mthd)
+#define NVE4_3D(mthd)    SUBC_3D(NVE4_3D_##mthd)
 #define SUBC_M2MF(mthd)  2, (mthd)
 #define SUBC_P2MF(mthd)  2, (mthd)
 #define NVC0_M2MF(mthd)  SUBC_M2MF(NVC0_M2MF_##mthd)

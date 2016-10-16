@@ -313,7 +313,7 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 		PUSH_DATA (push, 0x00000001);
 		BEGIN_NVC0(push, NVC0_3D(CB_BIND(4)), 1);
 		PUSH_DATA (push, 0x11);
-		BEGIN_NVC0(push, SUBC_3D(0x2608), 1);
+		BEGIN_NVC0(push, NVE4_3D(TEX_CB_INDEX), 1);
 		PUSH_DATA (push, 1);
 	}
 
