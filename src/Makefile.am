@@ -71,6 +71,7 @@ EXTRA_DIST = hwdefs/nv_3ddefs.xml.h \
 	     hwdefs/nv50_texture.h \
 	     hwdefs/nvc0_3d.xml.h \
 	     hwdefs/nvc0_m2mf.xml.h \
+	     hwdefs/gm107_texture.xml.h \
 	     shader/exac8nvc0.fp \
 	     shader/exac8nvc0.fpc \
 	     shader/exac8nve0.fp \
