@@ -156,9 +156,17 @@ NVAccelInitCOPY_NVE0(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_pushbuf *push = pNv->pushbuf;
+	uint32_t class;
 	int ret;
 
-	ret = nouveau_object_new(pNv->channel, 0x0000a0b5, 0xa0b5,
+	if (pNv->dev->chipset < 0x110)
+		class = 0xa0b5;
+	else if (pNv->dev->chipset < 0x130)
+		class = 0xb0b5;
+	else
+		class = 0xc0b5;
+
+	ret = nouveau_object_new(pNv->channel, class, class,
 				 NULL, 0, &pNv->NvCOPY);
 	if (ret)
 		return FALSE;
