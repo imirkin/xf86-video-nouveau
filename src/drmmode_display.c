@@ -65,6 +65,7 @@ typedef struct {
     uint32_t rotate_fb_id;
     Bool cursor_visible;
     int scanout_pixmap_x;
+    int dpms_mode;
 } drmmode_crtc_private_rec, *drmmode_crtc_private_ptr;
 
 typedef struct {
@@ -112,6 +113,14 @@ drmmode_crtc(xf86CrtcPtr crtc)
 {
 	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
 	return drmmode_crtc->mode_crtc->crtc_id;
+}
+
+Bool
+drmmode_crtc_on(xf86CrtcPtr crtc)
+{
+    drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
+
+    return crtc->enabled && drmmode_crtc->dpms_mode == DPMSModeOn;
 }
 
 int
@@ -313,9 +322,10 @@ drmmode_ConvertToKMode(ScrnInfoPtr scrn, drmModeModeInfo *kmode,
 }
 
 static void
-drmmode_crtc_dpms(xf86CrtcPtr drmmode_crtc, int mode)
+drmmode_crtc_dpms(xf86CrtcPtr crtc, int mode)
 {
-
+	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
+	drmmode_crtc->dpms_mode = mode;
 }
 
 void

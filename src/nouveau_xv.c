@@ -299,7 +299,7 @@ nv_window_belongs_to_crtc(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 	for (i = 0; i < xf86_config->num_crtc; i++) {
 		xf86CrtcPtr crtc = xf86_config->crtc[i];
 
-		if (!crtc->enabled)
+		if (!drmmode_crtc_on(crtc))
 			continue;
 
 		if ((x < (crtc->x + crtc->mode.HDisplay)) &&
