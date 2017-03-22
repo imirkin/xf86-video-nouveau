@@ -42,6 +42,7 @@ nouveau_copy_init(ScreenPtr pScreen)
 		int engine;
 		Bool (*init)(NVPtr);
 	} methods[] = {
+		{ 0xc1b5, 0, nouveau_copya0b5_init },
 		{ 0xc0b5, 0, nouveau_copya0b5_init },
 		{ 0xb0b5, 0, nouveau_copya0b5_init },
 		{ 0xa0b5, 0, nouveau_copya0b5_init },
@@ -84,6 +85,7 @@ nouveau_copy_init(ScreenPtr pScreen)
 		break;
 	case NV_KEPLER:
 	case NV_MAXWELL:
+	case NV_PASCAL:
 		ret = nouveau_object_new(&pNv->dev->object, 0,
 					 NOUVEAU_FIFO_CHANNEL_CLASS,
 					 &(struct nve0_fifo) {

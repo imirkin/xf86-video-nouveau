@@ -250,6 +250,12 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	} else if (pNv->dev->chipset < 0x130) {
 		class  = 0xb197;
 		handle = 0x0000906e;
+	} else if (pNv->dev->chipset == 0x130) {
+		class  = 0xc097;
+		handle = 0x0000906e;
+	} else if (pNv->dev->chipset < 0x140) {
+		class  = 0xc197;
+		handle = 0x0000906e;
 	} else {
 		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 			   "No 3D acceleration support for NV%X\n",

@@ -515,6 +515,7 @@ nouveau_exa_init(ScreenPtr pScreen)
 	case NV_FERMI:
 	case NV_KEPLER:
 	case NV_MAXWELL:
+	case NV_PASCAL:
 		exa->CheckComposite   = NVC0EXACheckComposite;
 		exa->PrepareComposite = NVC0EXAPrepareComposite;
 		exa->Composite        = NVC0EXAComposite;
