@@ -1556,6 +1556,15 @@ drmmode_udev_notify(int fd, int notify, void *data)
 }
 #endif
 
+static bool has_randr(void)
+{
+#if HAS_DIXREGISTERPRIVATEKEY
+	return dixPrivateKeyRegistered(rrPrivKey);
+#else
+	return *rrPrivKey;
+#endif
+}
+
 static void
 drmmode_uevent_init(ScrnInfoPtr scrn)
 {
@@ -1563,6 +1572,12 @@ drmmode_uevent_init(ScrnInfoPtr scrn)
 	drmmode_ptr drmmode = drmmode_from_scrn(scrn);
 	struct udev *u;
 	struct udev_monitor *mon;
+
+	/* RandR will be disabled if Xinerama is active, and so generating
+	 * RR hotplug events is then forbidden.
+	 */
+	if (!has_randr())
+		return;
 
 	u = udev_new();
 	if (!u)
