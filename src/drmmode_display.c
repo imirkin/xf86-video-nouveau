@@ -1433,7 +1433,7 @@ Bool drmmode_pre_init(ScrnInfoPtr pScrn, int fd, int cpp)
 	unsigned int crtcs_needed = 0;
 	int crtcshift;
 
-	drmmode = xnfalloc(sizeof *drmmode);
+	drmmode = xnfcalloc(sizeof(*drmmode), 1);
 	drmmode->fd = fd;
 	drmmode->fb_id = 0;
 
