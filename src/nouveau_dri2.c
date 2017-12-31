@@ -1076,12 +1076,15 @@ static PixmapPtr nouveau_dri3_pixmap_from_fd(ScreenPtr screen, int fd, CARD16 wi
 	struct nouveau_bo *bo = NULL;
 	struct nouveau_pixmap *nvpix;
 
-	if (depth < 8 || depth > 32 || depth % 8)
+	if (depth < 8 || depth > 32)
 		return NULL;
 
 	pixmap = screen->CreatePixmap(screen, 0, 0, depth, 0);
 	if (!pixmap)
 		return NULL;
+
+	if (pixmap->drawable.bitsPerPixel % 8)
+		goto free_pixmap;
 
 	if (!screen->ModifyPixmapHeader(pixmap, width, height, 0, 0, stride, NULL))
 		goto free_pixmap;
