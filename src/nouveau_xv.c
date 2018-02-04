@@ -112,6 +112,13 @@ XF86VideoFormatRec NVFormats[NUM_FORMATS_ALL] =
 	{15, DirectColor}, {16, DirectColor}, {24, DirectColor}
 };
 
+#define NUM_FORMATS_NV50 8
+XF86VideoFormatRec NV50Formats[NUM_FORMATS_NV50] =
+{
+	{15, TrueColor}, {16, TrueColor}, {24, TrueColor}, {30, TrueColor},
+	{15, DirectColor}, {16, DirectColor}, {24, DirectColor}, {30, DirectColor}
+};
+
 #define NUM_NV04_OVERLAY_ATTRIBUTES 4
 XF86AttributeRec NV04OverlayAttributes[NUM_NV04_OVERLAY_ATTRIBUTES] =
 {
@@ -2087,8 +2094,8 @@ NV50SetupTexturedVideo (ScreenPtr pScreen)
 	adapt->name		= "Nouveau GeForce 8/9 Textured Video";
 	adapt->nEncodings	= 1;
 	adapt->pEncodings	= &DummyEncodingNV50;
-	adapt->nFormats		= NUM_FORMATS_ALL;
-	adapt->pFormats		= NVFormats;
+	adapt->nFormats		= NUM_FORMATS_NV50;
+	adapt->pFormats		= NV50Formats;
 	adapt->nPorts		= NUM_TEXTURE_PORTS;
 	adapt->pPortPrivates	= (DevUnion*)(&adapt[1]);
 
