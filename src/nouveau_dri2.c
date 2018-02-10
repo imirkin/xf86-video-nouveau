@@ -1024,15 +1024,16 @@ nouveau_dri2_fini(ScreenPtr pScreen)
 }
 
 #ifdef DRI3
-static int is_render_node(int fd, struct stat *st)
+static int is_render_node(int fd)
 {
-	if (fstat(fd, st))
+	struct stat st;
+	if (fstat(fd, &st))
 		return 0;
 
-	if (!S_ISCHR(st->st_mode))
+	if (!S_ISCHR(st.st_mode))
 		return 0;
 
-	return st->st_rdev & 0x80;
+	return st.st_rdev & 0x80;
   }
 
 static int
@@ -1041,7 +1042,6 @@ nouveau_dri3_open(ScreenPtr screen, RRProviderPtr provider, int *out)
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(screen);
 	NVPtr pNv = NVPTR(pScrn);
 	int fd = -1;
-	struct stat buff;
 
 #ifdef O_CLOEXEC
 	fd = open(pNv->render_node, O_RDWR | O_CLOEXEC);
@@ -1051,11 +1051,7 @@ nouveau_dri3_open(ScreenPtr screen, RRProviderPtr provider, int *out)
 	if (fd < 0)
 		return -BadAlloc;
 
-	if (fstat(fd, &buff)) {
-		close(fd);
-		return -BadMatch;
-	}
-	if (!is_render_node(fd, &buff)) {
+	if (!is_render_node(fd)) {
 		drm_magic_t magic;
 
 		if (drmGetMagic(fd, &magic) || drmAuthMagic(pNv->dev->fd, magic)) {
@@ -1131,15 +1127,13 @@ nouveau_dri3_screen_init(ScreenPtr screen)
 #ifdef DRI3
 	ScrnInfoPtr pScrn = xf86ScreenToScrn(screen);
 	NVPtr pNv = NVPTR(pScrn);
-	struct stat master, render;
 	char *buf;
 
-	if (is_render_node(pNv->dev->fd, &master))
+	if (is_render_node(pNv->dev->fd))
 		return TRUE;
 
 	buf = drmGetRenderDeviceNameFromFd(pNv->dev->fd);
-	if (buf && stat(buf, &render) == 0 &&
-	    master.st_mode == render.st_mode) {
+	if (buf) {
 		pNv->render_node = buf;
 		if (dri3_screen_init(screen, &nouveau_dri3_screen_info)) {
 			xf86DrvMsg(pScrn->scrnIndex, X_INFO,
