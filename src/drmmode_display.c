@@ -1381,10 +1381,18 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, drmModeResPtr mode_r
 	drmModePropertyBlobPtr path_blob = NULL;
 	int i;
 
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "Adding connector: %d\n",
+		   mode_res->connectors[num]);
+
 	koutput = drmModeGetConnector(drmmode->fd,
 				      mode_res->connectors[num]);
-	if (!koutput)
+	if (!koutput) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Failed to find connector: %d\n",
+			   mode_res->connectors[num]);
 		return 0;
+	}
 
 	path_blob = koutput_get_prop_blob(drmmode->fd, koutput, "PATH");
 
@@ -1405,6 +1413,9 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, drmModeResPtr mode_r
 			drmmode_output = output->driver_private;
 			drmmode_output->output_id = mode_res->connectors[num];
 			drmmode_output->mode_output = koutput;
+			xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+				   "Duplicate connector being added: %d\n",
+				   mode_res->connectors[num]);
 			return 1;
 		}
 	}
@@ -1412,6 +1423,9 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, drmModeResPtr mode_r
 
 	kencoder = drmModeGetEncoder(drmmode->fd, koutput->encoders[0]);
 	if (!kencoder) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Unable to find encoder: %d\n",
+			   koutput->encoders[0]);
 		drmModeFreeConnector(koutput);
 		return 0;
 	}
@@ -1469,6 +1483,8 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, drmModeResPtr mode_r
 	output->interlaceAllowed = true;
 	output->doubleScanAllowed = true;
 
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "New output added: %s\n", output->name);
 	if (dynamic)
 		output->randr_output = RROutputCreate(xf86ScrnToScreen(pScrn), output->name, strlen(output->name), output);
 
